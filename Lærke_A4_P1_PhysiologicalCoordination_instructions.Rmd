@@ -204,6 +204,7 @@ A couple of tips:
 
 ```{r}
 library(stringr)
+pacman::p_load(groupdata2)
 
 #use list files function. Create an object
  list <- list.files(path = "data/", pattern = "*.csv")
@@ -212,6 +213,9 @@ library(stringr)
 
  for (file in 1:length(list)) {
     d <- read.csv(paste0(path, list[file]))
+    
+    d <- select(d, time, Resp1, Resp2, HR1, HR2)
+    
     d$trial <- ""
     d$trial <- str_extract(list[file], "T.")
     d$Study <- ""
@@ -221,6 +225,8 @@ library(stringr)
     d$Task <- ""
     d$Task <- str_extract(list[file], "........csv")
     data_lists <- rbind(data_lists, d)
+    
+    
 }
 
  
@@ -229,11 +235,48 @@ data_lists$trial <- str_replace_all(data_lists$trial, c("T" = ""))
 data_lists$Group <- str_replace_all(data_lists$Group, c("G" = ""))
 data_lists$Study <- str_replace_all(data_lists$Study, c("Study" = ""))
 data_lists$Task <- str_replace_all(data_lists$Task, c(".csv" = ""))
-data_lists$Task <- str_replace_all(data_lists$Task, c("elfPaced" = "SelfPaced", "rnTaking" = "TurnTaking", "chronous" = "Synchronous", "ersation" = "Conversation", "ntGuided" = "MovementGuided", "mentCoop" = "MovementCoop"))
+data_lists$Task <- str_replace_all(data_lists$Task, c("lfPaced" = "SelfPaced", "nTaking" = "TurnTaking", "hronous" = "Synchronous", "rsation" = "Conversation", "tGuided" = "MovementGuided", "entCoop" = "MovementCoop"))
 
 # Making a unique ID column
 data_lists$ID <- paste(data_lists$Study, data_lists$Group, sep = "", collapse = NULL)
 
+
+
+## Remove outliers
+removeOuts <- function(ts, threshold){
+  higher_threshold_condition <- ts > (mean(ts, na.rm = T) + (threshold*sd(ts, na.rm = T)))
+  lower_threshold_condition <- ts < (mean(ts, na.rm = T) - (threshold*sd(ts, na.rm = T)))
+  ts[higher_threshold_condition] <- mean(ts, na.rm = T) + (threshold*sd(ts, na.rm = T))
+  ts[lower_threshold_condition] <- mean(ts, na.rm = T) - (threshold*sd(ts, na.rm = T))
+  return(ts)
+}
+
+threshold = 2.5
+
+data_lists <- data_lists %>%
+  mutate(HR1_c = removeOuts(HR1, threshold),
+         HR2_c = removeOuts(HR2, threshold),
+         Resp1_c = removeOuts(Resp1, threshold),
+         Resp2_c = removeOuts(Resp2, threshold))
+
+
+## Scale
+data_lists$Resp1S <- scale(data_lists$Resp1_c)
+data_lists$Resp2S <- scale(data_lists$Resp2_c)
+data_lists$HR1S <- scale(data_lists$HR1_c)
+data_lists$HR2S <- scale(data_lists$HR2_c)
+
+
+
+
+## Downsample
+data_lists <- data_lists %>% 
+  group(n = 100, method = "greedy") %>%
+  dplyr::summarise(time = mean(time, na.rm = T),
+                   HR1 = mean(HR1, na.rm = T),
+                   HR2 = mean(HR2, na.rm = T),
+                   Resp1 = mean(Resp1, na.rm = T),
+                   Resp2 = mean(Resp2, na.rm = T))
 ```
 
 
