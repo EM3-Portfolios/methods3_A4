@@ -37,7 +37,7 @@ N.B. N.B. The data are collected by students from previous years (Study 1 - 4). 
 ### Exploring physiological signals
 The data files can be found here: https://www.dropbox.com/sh/bvvk7t3fvsplh9o/AADM6q4WrtXKvSwH5aAO1umta?dl=0
 
-- Choose one pair (one pair, three conditions, three files)
+  - Choose one pair (one pair, three conditions, three files)
 - Load the logs
 - Produce a plot of the participants' respiration signal and a different one of the participants' HR signal.
   N.B: remember the slides: artifacts, downsampling, scaling.
@@ -54,39 +54,88 @@ The data files can be found here: https://www.dropbox.com/sh/bvvk7t3fvsplh9o/AAD
 
 ```{r}
 # Load the libraries
+pacman::p_load(tidyverse, groupdata2)
+
 # Load the file
+file <- read_csv("./data/Study4_G8_T1_TurnTaking.csv")
+
 # Plot
+ggplot(data = file) +
+  geom_path(aes(TimeMs, HR1, color = "P1")) + 
+  geom_path(aes(TimeMs, HR2, color = "P2")) + 
+  labs(x = "time", y = "HR") + 
+  theme_classic() +
+  ggtitle("Raw data")
+  
+
 ## Remove outliers
 ### Tip, check the function below. This is the function explained in the video lecture
-removeOuts <- function(ts,threshold){
-  ts[ts > (mean(ts,na.rm=T) +
-             (threshold*sd(ts,na.rm=T))) | 
-       ts < (mean(ts,na.rm=T) -
-             (threshold*sd(ts,na.rm=T)))] = mean(ts,na.rm=T)
+removeOuts <- function(ts, threshold){
+  higher_threshold_condition <- ts > (mean(ts, na.rm = T) + (threshold*sd(ts, na.rm = T)))
+  lower_threshold_condition <- ts < (mean(ts, na.rm = T) - (threshold*sd(ts, na.rm = T)))
+  ts[higher_threshold_condition] <- mean(ts, na.rm = T) + (threshold*sd(ts, na.rm = T))
+  ts[lower_threshold_condition] <- mean(ts, na.rm = T) - (threshold*sd(ts, na.rm = T))
   return(ts)
 }
+
+
 threshold=2.5 # Default value at 2.5 sds from the mean. But you can increase it, if you want.
+file <- file %>% #M: applying the function to the data (all the variables)
+  mutate(HR1_c = removeOuts(HR1, threshold),
+         HR2_c = removeOuts(HR2, threshold),
+         Resp1_c = removeOuts(Resp1, threshold),
+         Resp2_c = removeOuts(Resp2, threshold))
+
 # Plot raw data against those with the artifacts removed
+ggplot(data = file) +
+  geom_path(aes(TimeMs, HR1_c, color = "P1")) + 
+  geom_path(aes(TimeMs, HR2_c, color = "P2")) + 
+  labs(x = "time", y = "HR") + 
+  theme_classic() +
+  ggtitle("Artifacts removed")
+
 ## Scale
+file$Resp1S <- scale(file$Resp1_c)
+file$Resp2S <- scale(file$Resp2_c)
+file$HR1S <- scale(file$HR1_c)
+file$HR2S <- scale(file$HR2_c)
 ### Tip: if scale() gives some issues, try the one below
 #z_scale <- function(column){
 #  column_c <- (column - mean(column)) / sd(column)
 #}
+
+
 # Plot again to check how scaled data look like
+ggplot(data = file) +
+  geom_path(aes(TimeMs, HR1S, color = "P1")) + 
+  geom_path(aes(TimeMs, HR2S, color = "P2")) + 
+  labs(x = "time", y = "HR") + 
+  theme_classic() +
+  ggtitle("Scaled data")
+
 ## Downsample
 ### You can use the code below. It is almost the same as the one in the video lecture.
-#d1 = d %>%
-#  group(n = 100, method = 'greedy') %>%
-#  dplyr::summarise(
-#    time = mean(time,na.rm=T),
-#    HR1 = mean(HR1S,na.rm=T),
-#    HR2 = mean(HR2S,na.rm=T),
-#    Resp1 = mean(Resp1S,na.rm=T),
-#    Resp2 = mean(Resp2S,na.rm=T),
-#    rowname = rowname[1]) #the index we use to put them back together 
+file_ds <- file %>% group(n = 100, method = "greedy") %>% #M: n=100 means that we want our data to be 100 times smaller
+  dplyr::summarise(TimeMs = mean(TimeMs, na.rm = T),
+                   HR1S = mean(HR1S, na.rm = T),
+                   HR2S = mean(HR2S, na.rm = T),
+                   Resp1S = mean(Resp1S, na.rm = T),
+                   Resp2S = mean(Resp2S, na.rm = T))
+# NOTE!!!! we want to be consistent in how much we downsample to avoid over-representing data in small sets. Be consistent.
+
 ## Plot the downsampled data. You can use the code from the slides
+ggplot(data = file_ds) +
+  geom_path(aes(TimeMs, HR1S, color = "P1")) + 
+  geom_path(aes(TimeMs, HR2S, color = "P2")) + 
+  labs(x = "time", y = "HR") + 
+  theme_classic() +
+  ggtitle("Downsampled data")
+
 ## Now add the group, trial, condition to the cleaned up, scaled, downsampled data
+# Alba and Lærke have loops for this in their markdowns
+
 ## Tip the info is in the file name
+
 ```
 
 
