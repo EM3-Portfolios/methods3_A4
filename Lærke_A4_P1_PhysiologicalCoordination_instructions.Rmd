@@ -224,7 +224,7 @@ pacman::p_load(groupdata2)
     d$Group <- str_extract(list[file], "G.")
     d$Task <- ""
     d$Task <- str_extract(list[file], "........csv")
-    data_lists <- rbind(data_lists, d)
+    data_lists <- bind_rows(data_lists, d)
     
     
 }
@@ -241,6 +241,20 @@ data_lists$Task <- str_replace_all(data_lists$Task, c("lfPaced" = "SelfPaced", "
 data_lists$ID <- paste(data_lists$Study, data_lists$Group, sep = "", collapse = NULL)
 
 
+## Downsample
+data_lists <- data_lists %>% 
+  group(n = 100, method = "greedy") %>%
+  dplyr::summarise(ID = ID, 
+                   Study = Study,
+                   Group = Group,
+                   Task = Task,
+                   time = mean(time, na.rm = T),
+                   HR1 = mean(HR1, na.rm = T),
+                   HR2 = mean(HR2, na.rm = T),
+                   Resp1 = mean(Resp1, na.rm = T),
+                   Resp2 = mean(Resp2, na.rm = T))
+
+data_lists$.groups <- NULL
 
 ## Remove outliers
 removeOuts <- function(ts, threshold){
@@ -267,16 +281,6 @@ data_lists$HR1S <- scale(data_lists$HR1_c)
 data_lists$HR2S <- scale(data_lists$HR2_c)
 
 
-
-
-## Downsample
-data_lists <- data_lists %>% 
-  group(n = 100, method = "greedy") %>%
-  dplyr::summarise(time = mean(time, na.rm = T),
-                   HR1 = mean(HR1, na.rm = T),
-                   HR2 = mean(HR2, na.rm = T),
-                   Resp1 = mean(Resp1, na.rm = T),
-                   Resp2 = mean(Resp2, na.rm = T))
 ```
 
 
