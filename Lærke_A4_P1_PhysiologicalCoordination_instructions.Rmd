@@ -69,13 +69,19 @@ singlefile <- readr::read_csv("Study1_G1_T1_Synchronous.csv",
   rownames_to_column()
 
 # Plot
-plot_raw <- ggplot(data = singlefile) +
+plot_raw_HR <- ggplot(data = singlefile) +
   geom_path(aes(time, HR1, colour = "P1")) +
   geom_path(aes(time, HR2, colour = "P2")) + 
   labs(x = "time", y = "HR") + 
   theme_classic() +
-  ggtitle("Raw Data")
+  ggtitle("Raw HR Data")
 
+plot_raw_resp <- ggplot(data = singlefile) +
+  geom_path(aes(time, Resp1, colour = "P1")) +
+  geom_path(aes(time, Resp2, colour = "P2")) + 
+  labs(x = "time", y = "HR") + 
+  theme_classic() +
+  ggtitle("Raw Resp Data")
 
 
 ## Remove outliers
@@ -89,8 +95,7 @@ removeOuts <- function(ts, threshold){
 
 threshold = 2.5
 
-singlefile_noOuts <- singlefile
-singlefile_noOuts <- singlefile_noOuts %>%
+singlefile <- singlefile %>%
   mutate(HR1_c = removeOuts(HR1, threshold),
          HR2_c = removeOuts(HR2, threshold),
          Resp1_c = removeOuts(Resp1, threshold),
@@ -98,54 +103,91 @@ singlefile_noOuts <- singlefile_noOuts %>%
 
 
 # Plot raw data against those with the artifacts removed
-plot_noOuts <- ggplot(data = singlefile_noOuts) +
+plot_noOuts_HR <- ggplot(data = singlefile) +
   geom_path(aes(time, HR1_c, colour = "P1")) +
   geom_path(aes(time, HR2_c, colour = "P2")) + 
   labs(x = "time", y = "HR") + 
   theme_classic() +
-  ggtitle("Data with no Outliers")
+  ggtitle("HR Data with no Outliers")
 
-plot_raw
-plot_noOuts
+plot_noOuts_resp <- ggplot(data = singlefile) +
+  geom_path(aes(time, Resp1_c, colour = "P1")) +
+  geom_path(aes(time, Resp2_c, colour = "P2")) + 
+  labs(x = "time", y = "HR") + 
+  theme_classic() +
+  ggtitle("Resp Data with no Outliers")
 
 
 ## Scale
-singlefile_noOuts$Resp1S <- scale(singlefile_noOuts$Resp1_c)
-singlefile_noOuts$Resp2S <- scale(singlefile_noOuts$Resp2_c)
-singlefile_noOuts$HR1S <- scale(singlefile_noOuts$HR1_c)
-singlefile_noOuts$HR2S <- scale(singlefile_noOuts$HR2_c)
+singlefile$Resp1S <- scale(singlefile$Resp1_c)
+singlefile$Resp2S <- scale(singlefile$Resp2_c)
+singlefile$HR1S <- scale(singlefile$HR1_c)
+singlefile$HR2S <- scale(singlefile$HR2_c)
 
 ### Tip: if scale() gives some issues, try the one below
 #z_scale <- function(column){
 #  column_c <- (column - mean(column)) / sd(column)
 #}
 # Plot again to check how scaled data look like
-plot_noOuts_scaled <- ggplot(data = singlefile_noOuts) +
+plot_noOuts_scaled_HR <- ggplot(data = singlefile) +
   geom_path(aes(time, HR1S, colour = "P1")) +
   geom_path(aes(time, HR2S, colour = "P2")) + 
   labs(x = "time", y = "HR") + 
   theme_classic() + 
-  ggtitle("Scaled Data with no Outliers")
+  ggtitle("Scaled HR Data with no Outliers")
 
-plot_raw
-plot_noOuts
-plot_noOuts_scaled
+plot_noOuts_scaled_resp <- ggplot(data = singlefile) +
+  geom_path(aes(time, Resp1S, colour = "P1")) +
+  geom_path(aes(time, Resp2S, colour = "P2")) + 
+  labs(x = "time", y = "HR") + 
+  theme_classic() + 
+  ggtitle("Scaled Resp Data with no Outliers")
 
 
 ## Downsample
 ### You can use the code below. It is almost the same as the one in the video lecture.
-#d1 = d %>%
-#  group(n = 100, method = 'greedy') %>%
-#  dplyr::summarise(
-#    time = mean(time,na.rm=T),
-#    HR1 = mean(HR1S,na.rm=T),
-#    HR2 = mean(HR2S,na.rm=T),
-#    Resp1 = mean(Resp1S,na.rm=T),
-#    Resp2 = mean(Resp2S,na.rm=T),
-#    rowname = rowname[1]) #the index we use to put them back together 
+pacman::p_load(groupdata2)
+
+singlefile_downsample = singlefile %>%
+  group(n = 100, method = 'greedy') %>%
+  dplyr::summarise(
+    time = mean(time,na.rm=T),
+    HR1 = mean(HR1S,na.rm=T),
+    HR2 = mean(HR2S,na.rm=T),
+    Resp1 = mean(Resp1S,na.rm=T),
+    Resp2 = mean(Resp2S,na.rm=T),
+    rowname = rowname[1]) #the index we use to put them back together 
 ## Plot the downsampled data. You can use the code from the slides
+
+plot_downsample_HR <- ggplot(data = singlefile_downsample) +
+  geom_path(aes(time, HR1, colour = "P1")) +
+  geom_path(aes(time, HR2, colour = "P2")) + 
+  labs(x = "time", y = "HR") + 
+  theme_classic() + 
+  ggtitle("Downsampled Data")
+
+plot_downsample_resp <- ggplot(data = singlefile_downsample) +
+  geom_path(aes(time, Resp1, colour = "P1")) +
+  geom_path(aes(time, Resp2, colour = "P2")) + 
+  labs(x = "time", y = "HR") + 
+  theme_classic() + 
+  ggtitle("Downsampled Resp Data")
+
+plot_raw_HR
+plot_noOuts_HR
+plot_noOuts_scaled_HR
+plot_downsample_HR
+
+plot_raw_resp
+plot_noOuts_resp
+plot_noOuts_scaled_resp
+plot_downsample_resp
+
 ## Now add the group, trial, condition to the cleaned up, scaled, downsampled data
 ## Tip the info is in the file name
+
+
+
 ```
 
 
@@ -158,6 +200,43 @@ A couple of tips:
 - you may want your first step after loading a file to be downsampling, so that you don't work with enormous amount of data
 - each study restarts the group numbering, so you should make sure to change that (e.g. 100 * Study + Group)
 - you need to make sure all the data are meaningful or something has to be removed. Plotting is your friend. E.g. "Study1_G1_T1_Synchronous" has one bad respiration signal. We could replace it with NAs
+
+
+```{r}
+library(stringr)
+
+#use list files function. Create an object
+ list <- list.files(path = "data/", pattern = "*.csv")
+ path <- "data/"
+ data_lists <- as.data.frame(NULL)
+
+ for (file in 1:length(list)) {
+    d <- read.csv(paste0(path, list[file]))
+    d$trial <- ""
+    d$trial <- str_extract(list[file], "T.")
+    d$Study <- ""
+    d$Study <- str_extract(list[file], "Study.")
+    d$Group <- ""
+    d$Group <- str_extract(list[file], "G.")
+    d$Task <- ""
+    d$Task <- str_extract(list[file], "........csv")
+    data_lists <- rbind(data_lists, d)
+}
+
+ 
+# Removing and adding things:
+data_lists$trial <- str_replace_all(data_lists$trial, c("T" = ""))
+data_lists$Group <- str_replace_all(data_lists$Group, c("G" = ""))
+data_lists$Study <- str_replace_all(data_lists$Study, c("Study" = ""))
+data_lists$Task <- str_replace_all(data_lists$Task, c(".csv" = ""))
+data_lists$Task <- str_replace_all(data_lists$Task, c("elfPaced" = "SelfPaced", "rnTaking" = "TurnTaking", "chronous" = "Synchronous", "ersation" = "Conversation", "ntGuided" = "MovementGuided", "mentCoop" = "MovementCoop"))
+
+# Making a unique ID column
+data_lists$ID <- paste(data_lists$Study, data_lists$Group, sep = "", collapse = NULL)
+
+```
+
+
 
 
 ```{r}
