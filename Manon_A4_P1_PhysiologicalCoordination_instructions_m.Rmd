@@ -159,7 +159,7 @@ d1 <- as.data.frame(NULL)
 data_preprocess <- function(filename, threshold = 2.5){
   
   #loading data
-  d <- read_csv(paste0("data/", filename))
+  d <- read_csv(paste0("lille_data/", filename))
   
   # creating columns from filenames
   d$Trial <- ""
@@ -181,9 +181,14 @@ data_preprocess <- function(filename, threshold = 2.5){
   # Making a unique ID column
   d$ID <- paste(d$Study, d$Group, sep = "", collapse = NULL)
   
+  #
+  if (d$Study == "4") {
+    d <- d %>% rename(time = TimeMs)
+  }
+  
   # Downsample
   d <- d %>%
-    group(n = 100, method = "greedy") %>%
+    group(n = 100, method = "greedy") %>% #when you downsample by 100, you measure the mean of those 100 rows, see below.
     dplyr::summarise(ID = ID, 
                    Study = Study,
                    Group = Group,
@@ -209,21 +214,16 @@ data_preprocess <- function(filename, threshold = 2.5){
   d$HR1S <- scale(d$HR1_c)
   d$HR2S <- scale(d$HR2_c)
   
-  # Add it up <3<3<3<3
-  d1 <- bind_rows(d1, d)
-  
-  return(d1)
+  return(d)
 }
 
 
 
 #  Identify all files to be read
-filenames_list <- list.files(path = "/Users/manon/Desktop/3. Semester/Experimental Methods 3/EM3 portfolio 4/methods3_A4/data/", pattern = "*.csv")
+filenames_list <- list.files(path = "/Users/manon/Desktop/3. Semester/Experimental Methods 3/EM3 portfolio 4/methods3_A4/lille_data/", pattern = "*.csv")
 
 # Run the function on the whole dataset using map_df
-for(i in filenames_list){
-  data_preprocess(i, threshold = 2.5)
-}
+d1 <- map_df(filenames_list, data_preprocess)
 
          
 # Now we need to make sure all the data are meaningful or something has to be removed
