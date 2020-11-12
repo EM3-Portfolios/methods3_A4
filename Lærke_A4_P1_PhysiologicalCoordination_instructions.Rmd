@@ -213,8 +213,7 @@ pacman::p_load(groupdata2)
 
  for (file in 1:length(list)) {
     d <- read.csv(paste0(path, list[file]))
-    
-    d <- select(d, time, Resp1, Resp2, HR1, HR2)
+  
     
     d$trial <- ""
     d$trial <- str_extract(list[file], "T.")
@@ -235,12 +234,13 @@ pacman::p_load(groupdata2)
     # Making a unique ID column
     d$ID <- paste(d$Study, d$Group, sep = "", collapse = NULL)
     
-    # Modifying the time columns to match
+        # Modifying the time columns to match
     if (d$Study == "4") {
-      d$time <- d$TimeMs / 1000
-    } else {
-      d$time <- d$time
+      d <- d %>% rename(time = TimeMs)
     }
+    
+    #d <- select(d, ID, time, Resp1, Resp2, HR1, HR2)
+    
     
     ## Downsample
     d <- d %>% 
@@ -331,7 +331,6 @@ data_lists$HR2S <- scale(data_lists$HR2_c)
 
 
 ```
-
 
 
 ```{r one loop for study4 and one for the others}
