@@ -23,6 +23,7 @@ This assignment has two parts. The first part familiarizes you with heart rate, 
 These are the questions you need to be able to answer at the end of the assignment (aka that you need to submit as part of the portfolio)
 
 1) How do you preprocess heart rate and respiration data? Describe the process. If any data needs to be excluded, list the excluded data and motivate the exclusion.
+  *ECG excluded, the .txt and .xlsx files, *
 
 2) Do you observe interpersonal coordination in heart rate and respiration? Describe your control baseline, the method used to quantify coordination, and the statistical models used to infer whether coordination was higher than in the baseline. Report the results of the models.
 
@@ -52,7 +53,7 @@ The data files can be found here: https://www.dropbox.com/sh/bvvk7t3fvsplh9o/AAD
 - downsample the data
 - Add a column for study, group, trial and condition
 
-```{r}
+```{r First we read one data file and identify the procedure}
 # Load the libraries
 pacman::p_load(tidyverse, groupdata2)
 
@@ -152,14 +153,78 @@ A couple of tips:
 
 ```{r}
 # Define a function running the loading, artifact removal, scaling, downsampling, info adding.
+
+d1 <- as.data.frame(NULL)  
+
 data_preprocess <- function(filename, threshold = 2.5){
   
-  # To be filled in
+  #loading data
+  d <- read_csv(paste0("data/", filename))
+  
+  # creating columns from filenames
+  d$Trial <- ""
+  d$Trial <- str_extract(filename, "T.")
+  d$Study <- ""
+  d$Study <- str_extract(filename, "Study.")
+  d$Group <- ""
+  d$Group <- str_extract(filename, "G.")
+  d$Task <- ""
+  d$Task <- str_extract(filename, "........csv")
+  
+  # Removing and adding things:
+  d$Trial <- str_replace_all(d$Trial, c("T" = ""))
+  d$Group <- str_replace_all(d$Group, c("G" = ""))
+  d$Study <- str_replace_all(d$Study, c("Study" = ""))
+  d$Task <- str_replace_all(d$Task, c(".csv" = ""))
+  d$Task <- str_replace_all(d$Task, c("lfPaced" = "SelfPaced", "nTaking" = "TurnTaking", "hronous" = "Synchronous", "rsation" = "Conversation", "tGuided" = "MovementGuided", "entCoop" = "MovementCoop"))
+  
+  # Making a unique ID column
+  d$ID <- paste(d$Study, d$Group, sep = "", collapse = NULL)
+  
+  # Downsample
+  d <- d %>%
+    group(n = 100, method = "greedy") %>%
+    dplyr::summarise(ID = ID, 
+                   Study = Study,
+                   Group = Group,
+                   Task = Task,
+                   Trial = Trial,
+                   time = mean(time, na.rm = F), # this may cause trouble ?? for sets without
+                   #TimeMs = mean(TimeMs, na.rm = F), # let's cross our fingers
+                   HR1 = mean(HR1, na.rm = T),
+                   HR2 = mean(HR2, na.rm = T),
+                   Resp1 = mean(Resp1, na.rm = T),
+                   Resp2 = mean(Resp2, na.rm = T))
+  
+  # Removing outliers
+  d <- d %>%
+    mutate(HR1_c = removeOuts(HR1, threshold),   # right now we are keeping the old data
+         HR2_c = removeOuts(HR2, threshold),     # we may remove later if we don't need
+         Resp1_c = removeOuts(Resp1, threshold),
+         Resp2_c = removeOuts(Resp2, threshold))
+  
+  # Scale
+  d$Resp1S <- scale(d$Resp1_c)
+  d$Resp2S <- scale(d$Resp2_c)
+  d$HR1S <- scale(d$HR1_c)
+  d$HR2S <- scale(d$HR2_c)
+  
+  # Add it up <3<3<3<3
+  d1 <- bind_rows(d1, d)
   
   return(d1)
 }
+
+
+
 #  Identify all files to be read
+filenames_list <- list.files(path = "/Users/manon/Desktop/3. Semester/Experimental Methods 3/EM3 portfolio 4/methods3_A4/data/", pattern = "*.csv")
+
 # Run the function on the whole dataset using map_df
+for(i in filenames_list){
+  data_preprocess(i, threshold = 2.5)
+}
+
          
 # Now we need to make sure all the data are meaningful or something has to be removed
 # E.g. "Study1_G1_T1_Synchronous" has one bad respiration signal. We could replace it with NAs
