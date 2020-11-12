@@ -224,12 +224,52 @@ pacman::p_load(groupdata2)
     d$Group <- str_extract(list[file], "G.")
     d$Task <- ""
     d$Task <- str_extract(list[file], "........csv")
-    data_lists <- bind_rows(data_lists, d)
     
-    
-}
+    # Removing and adding things:
+    d$trial <- str_replace_all(d$trial, c("T" = ""))
+    d$Group <- str_replace_all(d$Group, c("G" = ""))
+    d$Study <- str_replace_all(d$Study, c("Study" = ""))
+    d$Task <- str_replace_all(d$Task, c(".csv" = ""))
+    d$Task <- str_replace_all(d$Task, c("lfPaced" = "SelfPaced", "nTaking" = "TurnTaking", "hronous" = "Synchronous", "rsation" = "Conversation", "tGuided" = "MovementGuided", "entCoop" = "MovementCoop"))
 
- 
+    # Making a unique ID column
+    d$ID <- paste(d$Study, d$Group, sep = "", collapse = NULL)
+    
+    ## Downsample
+    d <- d %>% 
+     group(n = 100, method = "greedy") %>%
+      dplyr::summarise(ID = ID, 
+                       trial = trial,
+                       Study = Study,
+                       Group = Group,
+                       Task = Task,
+                       time = mean(time, na.rm = T),
+                       HR1 = mean(HR1, na.rm = T),
+                       HR2 = mean(HR2, na.rm = T),
+                       Resp1 = mean(Resp1, na.rm = T),
+                       Resp2 = mean(Resp2, na.rm = T))
+
+    d$.groups <- NULL
+    
+    d <- d %>%
+     mutate(HR1_c = removeOuts(HR1, threshold),
+         HR2_c = removeOuts(HR2, threshold),
+         Resp1_c = removeOuts(Resp1, threshold),
+         Resp2_c = removeOuts(Resp2, threshold))
+
+
+    ## Scale
+    d$Resp1S <- scale(d$Resp1_c)
+    d$Resp2S <- scale(d$Resp2_c)
+    d$HR1S <- scale(d$HR1_c)
+    d$HR2S <- scale(d$HR2_c)
+    
+    data_lists <- bind_rows(data_lists, d)
+}
+```
+
+
+```{r Stuff from the loop}
 # Removing and adding things:
 data_lists$trial <- str_replace_all(data_lists$trial, c("T" = ""))
 data_lists$Group <- str_replace_all(data_lists$Group, c("G" = ""))
