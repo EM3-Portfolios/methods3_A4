@@ -202,7 +202,7 @@ A couple of tips:
 - you need to make sure all the data are meaningful or something has to be removed. Plotting is your friend. E.g. "Study1_G1_T1_Synchronous" has one bad respiration signal. We could replace it with NAs
 
 
-```{r}
+```{r for-loop - single}
 library(stringr)
 pacman::p_load(groupdata2)
 
@@ -235,6 +235,13 @@ pacman::p_load(groupdata2)
     # Making a unique ID column
     d$ID <- paste(d$Study, d$Group, sep = "", collapse = NULL)
     
+    # Modifying the time columns to match
+    if (d$Study == "4") {
+      d$time <- d$TimeMs / 1000
+    } else {
+      d$time <- d$time
+    }
+    
     ## Downsample
     d <- d %>% 
      group(n = 100, method = "greedy") %>%
@@ -265,7 +272,9 @@ pacman::p_load(groupdata2)
     d$HR2S <- scale(d$HR2_c)
     
     data_lists <- bind_rows(data_lists, d)
-}
+ }
+ 
+
 ```
 
 
@@ -321,6 +330,141 @@ data_lists$HR1S <- scale(data_lists$HR1_c)
 data_lists$HR2S <- scale(data_lists$HR2_c)
 
 
+```
+
+
+
+```{r one loop for study4 and one for the others}
+#use list files function. Create an object
+ list <- list.files(path = "data123/", pattern = "*.csv")
+ path <- "data123/"
+ data_lists1 <- as.data.frame(NULL)
+
+ for (file in 1:length(list)) {
+    d <- read.csv(paste0(path, list[file]))
+    
+    d <- select(d, time, Resp1, Resp2, HR1, HR2)
+    
+    d$trial <- ""
+    d$trial <- str_extract(list[file], "T.")
+    d$Study <- ""
+    d$Study <- str_extract(list[file], "Study.")
+    d$Group <- ""
+    d$Group <- str_extract(list[file], "G.")
+    d$Task <- ""
+    d$Task <- str_extract(list[file], "........csv")
+    
+    # Removing and adding things:
+    d$trial <- str_replace_all(d$trial, c("T" = ""))
+    d$Group <- str_replace_all(d$Group, c("G" = ""))
+    d$Study <- str_replace_all(d$Study, c("Study" = ""))
+    d$Task <- str_replace_all(d$Task, c(".csv" = ""))
+    d$Task <- str_replace_all(d$Task, c("lfPaced" = "SelfPaced", "nTaking" = "TurnTaking", "hronous" = "Synchronous", "rsation" = "Conversation", "tGuided" = "MovementGuided", "entCoop" = "MovementCoop"))
+
+    # Making a unique ID column
+    d$ID <- paste(d$Study, d$Group, sep = "", collapse = NULL)
+    
+    ## Downsample
+    d <- d %>% 
+     group(n = 100, method = "greedy") %>%
+      dplyr::summarise(ID = ID, 
+                       trial = trial,
+                       Study = Study,
+                       Group = Group,
+                       Task = Task,
+                       time = mean(time, na.rm = T),
+                       HR1 = mean(HR1, na.rm = T),
+                       HR2 = mean(HR2, na.rm = T),
+                       Resp1 = mean(Resp1, na.rm = T),
+                       Resp2 = mean(Resp2, na.rm = T))
+
+    d$.groups <- NULL
+    
+    d <- d %>%
+     mutate(HR1_c = removeOuts(HR1, threshold),
+         HR2_c = removeOuts(HR2, threshold),
+         Resp1_c = removeOuts(Resp1, threshold),
+         Resp2_c = removeOuts(Resp2, threshold))
+
+
+    ## Scale
+    d$Resp1S <- scale(d$Resp1_c)
+    d$Resp2S <- scale(d$Resp2_c)
+    d$HR1S <- scale(d$HR1_c)
+    d$HR2S <- scale(d$HR2_c)
+    
+    data_lists1 <- bind_rows(data_lists1, d)
+ }
+
+
+ 
+ #use list files function. Create an object
+ list <- list.files(path = "data4/", pattern = "*.csv")
+ path <- "data4/"
+ data_lists2 <- as.data.frame(NULL)
+
+ for (file in 1:length(list)) {
+    d <- read.csv(paste0(path, list[file]))
+    
+    d <- select(d, TimeMs, Resp1, Resp2, HR1, HR2)
+    
+    d$trial <- ""
+    d$trial <- str_extract(list[file], "T.")
+    d$Study <- ""
+    d$Study <- str_extract(list[file], "Study.")
+    d$Group <- ""
+    d$Group <- str_extract(list[file], "G.")
+    d$Task <- ""
+    d$Task <- str_extract(list[file], "........csv")
+    
+    # Removing and adding things:
+    d$trial <- str_replace_all(d$trial, c("T" = ""))
+    d$Group <- str_replace_all(d$Group, c("G" = ""))
+    d$Study <- str_replace_all(d$Study, c("Study" = ""))
+    d$Task <- str_replace_all(d$Task, c(".csv" = ""))
+    d$Task <- str_replace_all(d$Task, c("lfPaced" = "SelfPaced", "nTaking" = "TurnTaking", "hronous" = "Synchronous", "rsation" = "Conversation", "tGuided" = "MovementGuided", "entCoop" = "MovementCoop"))
+
+    # Making a unique ID column
+    d$ID <- paste(d$Study, d$Group, sep = "", collapse = NULL)
+
+    ## Downsample
+    d <- d %>% 
+     group(n = 100, method = "greedy") %>%
+      dplyr::summarise(ID = ID, 
+                       trial = trial,
+                       Study = Study,
+                       Group = Group,
+                       Task = Task,
+                       time = mean(TimeMs, na.rm = T), #Make T small
+                       HR1 = mean(HR1, na.rm = T),
+                       HR2 = mean(HR2, na.rm = T),
+                       Resp1 = mean(Resp1, na.rm = T),
+                       Resp2 = mean(Resp2, na.rm = T))
+
+    d$.groups <- NULL
+    
+    d <- d %>%
+     mutate(HR1_c = removeOuts(HR1, threshold),
+         HR2_c = removeOuts(HR2, threshold),
+         Resp1_c = removeOuts(Resp1, threshold),
+         Resp2_c = removeOuts(Resp2, threshold))
+
+
+    ## Scale
+    d$Resp1S <- scale(d$Resp1_c)
+    d$Resp2S <- scale(d$Resp2_c)
+    d$HR1S <- scale(d$HR1_c)
+    d$HR2S <- scale(d$HR2_c)
+    
+    data_lists2 <- bind_rows(data_lists2, d)
+ }
+ 
+ 
+ data_lists2$time <- data_lists2$time / 1000
+# data_lists2$Time <- NULL
+ 
+ df <- rbind(data_lists1, data_lists2)
+ 
 ```
 
 
