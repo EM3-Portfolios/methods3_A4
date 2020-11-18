@@ -59,6 +59,7 @@ pacman::p_load(tidyverse, groupdata2)
 
 # Load the file
 file <- read_csv("./data/Study4_G8_T1_TurnTaking.csv")
+file2 <- read_csv("./data/Study1_G1_T2_TurnTaking.csv")
 
 # Plot
 ggplot(data = file) +
@@ -156,10 +157,21 @@ A couple of tips:
 
 d1 <- as.data.frame(NULL)
 
-data_preprocess <- function(filename, threshold = 2.5){
+data_preprocess <- function(filename, threshold = 3){
   
   #loading data
   d <- read_csv(paste0("data/", filename))
+  
+  # renaming the TimeMs column to time to conform study 4 to the others
+  names(d)[names(d) == "TimeMs"] <- "time"
+  
+  # Downsample
+  d <- d %>% group(n = 400, method = "greedy") %>% 
+    dplyr::summarise(time = mean(time, na.rm = T), #oh wait that's why we had to have ds after creating new columns etc :|
+                   HR1 = mean(HR1, na.rm = T),
+                   HR2 = mean(HR2, na.rm = T),
+                   Resp1 = mean(Resp1, na.rm = T),
+                   Resp2 = mean(Resp2, na.rm = T))
   
   # creating columns from filenames
   d$Trial <- ""
@@ -181,25 +193,7 @@ data_preprocess <- function(filename, threshold = 2.5){
   # Making a unique ID column
   d$ID <- paste(d$Study, d$Group, sep = "", collapse = NULL)
   
-  #
-  if (d$Study == "4") {
-    d <- d %>% rename(time = TimeMs)
-  }
-  
-  # Downsample
-  d <- d %>%
-    group(n = 100, method = "greedy") %>% #when you downsample by 100, you measure the mean of those 100 rows, see below.
-    dplyr::summarise(ID = ID, 
-                   Study = Study,
-                   Group = Group,
-                   Task = Task,
-                   Trial = Trial,
-                   time = mean(time, na.rm = F),
-                   HR1 = mean(HR1, na.rm = T),
-                   HR2 = mean(HR2, na.rm = T),
-                   Resp1 = mean(Resp1, na.rm = T),
-                   Resp2 = mean(Resp2, na.rm = T))
-  
+  print(d$Study)
   # Removing outliers
   d <- d %>%
     mutate(HR1_c = removeOuts(HR1, threshold),   # right now we are keeping the old data
@@ -223,18 +217,33 @@ filenames_list <- list.files(path = "/Users/manon/Desktop/3. Semester/Experiment
 
 # Run the function on the whole dataset using map_df
 d1 <- map_df(filenames_list, data_preprocess)
+
 ```
 
-```{r}
+```{r plotting, inspecting and saving data}
 # Now we need to make sure all the data are meaningful or something has to be removed
 # E.g. "Study1_G1_T1_Synchronous" has one bad respiration signal. We could replace it with NAs
+
 # plots plots plots
-ggplot(data = file_ds) +
-  geom_path(aes(TimeMs, HR1S, color = "P1")) + 
-  geom_path(aes(TimeMs, HR2S, color = "P2")) + 
-  labs(x = "time", y = "HR") + 
-  theme_classic() +
-  ggtitle("Downsampled data")
+
+plot_taskpergroup <- function(id, d1){
+  p <- d1 %>% 
+    group_by(ID) %>%
+    mutate(time = seq(n())) %>% #"this is where we are going to solve that issue"
+    subset(ID == id) %>%
+    ggplot() + 
+    geom_line(aes(time, HR1S, color ="HR1")) + 
+    geom_line(aes(time, HR2S, color = "HR2")) + #plotting 2 lines
+    labs(y = "HR") +
+    ggtitle(paste("HR for each person of group ", id, " in each condition")) +
+    theme_classic() + 
+    facet_wrap(Task ~., ncol = 1)
+  p
+  return(p)
+}
+
+plot_taskpergroup(11, d1)
+#unique IDs: "11" "12" "13" "14" "21" "25" "26" "27" "28" "29" "31" "32" "34" "35" "36" "37" "38" "39" "41" "42" "43" "44" "45" "46" "47" "48"
 
 # Remove bad data
 # Save the data
