@@ -167,7 +167,7 @@ data_preprocess <- function(filename, threshold = 3){
   
   # Downsample
   d <- d %>% group(n = 400, method = "greedy") %>% 
-    dplyr::summarise(time = mean(time, na.rm = T), #oh wait that's why we had to have ds after creating new columns etc :|
+    dplyr::summarise(time = mean(time, na.rm = T),
                    HR1 = mean(HR1, na.rm = T),
                    HR2 = mean(HR2, na.rm = T),
                    Resp1 = mean(Resp1, na.rm = T),
@@ -193,7 +193,6 @@ data_preprocess <- function(filename, threshold = 3){
   # Making a unique ID column
   d$ID <- paste(d$Study, d$Group, sep = "", collapse = NULL)
   
-  print(d$Study)
   # Removing outliers
   d <- d %>%
     mutate(HR1_c = removeOuts(HR1, threshold),   # right now we are keeping the old data
