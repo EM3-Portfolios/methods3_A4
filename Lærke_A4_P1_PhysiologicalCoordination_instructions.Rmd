@@ -587,12 +587,13 @@ Bonus question: what if we include an additional layer? Is my heart rate just ad
 
 
 ```{r}
-# Generate a column for each: previous HR1, HR2, Resp1, Resp2. Tip: use the function Lag()
-d1$HR1_lead <- lag(d1$HR1, -1)
-d1$HR2_lead <- lag(d1$HR2, -1)
 
-d1$Resp1_lead <- lag(d1$Resp1, -1)
-d1$Resp2_lead <- lag(d1$Resp2, -1)
+# Generate a column for each: previous HR1, HR2, Resp1, Resp2. Tip: use the function Lag()
+d1$HR1_lead <- stats::lag(d1$HR1, -1)
+d1$HR2_lead <- stats::lag(d1$HR2, -1)
+
+d1$Resp1_lead <- stats::lag(d1$Resp1, -1)
+d1$Resp2_lead <- stats::lag(d1$Resp2, -1)
 
 # Generate a column for each: change in HR1, HR2, Resp1, Resp2
 d1$HR1_change <- d1$HR1_lead - d1$HR1
