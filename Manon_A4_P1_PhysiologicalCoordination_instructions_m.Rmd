@@ -151,15 +151,15 @@ A couple of tips:
 - you need to make sure all the data are meaningful or something has to be removed. Plotting is your friend. E.g. "Study1_G1_T1_Synchronous" has one bad respiration signal. We could replace it with NAs
 
 
-```{r}
+```{r data preprocessing function <3 <3 <3}
 # Define a function running the loading, artifact removal, scaling, downsampling, info adding.
 
-d1 <- as.data.frame(NULL)  
+d1 <- as.data.frame(NULL)
 
 data_preprocess <- function(filename, threshold = 2.5){
   
   #loading data
-  d <- read_csv(paste0("lille_data/", filename))
+  d <- read_csv(paste0("data/", filename))
   
   # creating columns from filenames
   d$Trial <- ""
@@ -194,8 +194,7 @@ data_preprocess <- function(filename, threshold = 2.5){
                    Group = Group,
                    Task = Task,
                    Trial = Trial,
-                   time = mean(time, na.rm = F), # this may cause trouble ?? for sets without
-                   #TimeMs = mean(TimeMs, na.rm = F), # let's cross our fingers
+                   time = mean(time, na.rm = F),
                    HR1 = mean(HR1, na.rm = T),
                    HR2 = mean(HR2, na.rm = T),
                    Resp1 = mean(Resp1, na.rm = T),
@@ -220,18 +219,28 @@ data_preprocess <- function(filename, threshold = 2.5){
 
 
 #  Identify all files to be read
-filenames_list <- list.files(path = "/Users/manon/Desktop/3. Semester/Experimental Methods 3/EM3 portfolio 4/methods3_A4/lille_data/", pattern = "*.csv")
+filenames_list <- list.files(path = "/Users/manon/Desktop/3. Semester/Experimental Methods 3/EM3 portfolio 4/methods3_A4/data/", pattern = "*.csv")
 
 # Run the function on the whole dataset using map_df
 d1 <- map_df(filenames_list, data_preprocess)
+```
 
-         
+```{r}
 # Now we need to make sure all the data are meaningful or something has to be removed
 # E.g. "Study1_G1_T1_Synchronous" has one bad respiration signal. We could replace it with NAs
 # plots plots plots
+ggplot(data = file_ds) +
+  geom_path(aes(TimeMs, HR1S, color = "P1")) + 
+  geom_path(aes(TimeMs, HR2S, color = "P2")) + 
+  labs(x = "time", y = "HR") + 
+  theme_classic() +
+  ggtitle("Downsampled data")
+
 # Remove bad data
 # Save the data
 ```
+
+
 
 ## Now we need to run some analysis
 
