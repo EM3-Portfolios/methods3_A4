@@ -473,12 +473,23 @@ data_lists$HR2S <- scale(data_lists$HR2_c)
 
 ```{r Function}
 
-d1 <- as.data.frame(NULL)  
+d1 <- as.data.frame(NULL)
 
-data_preprocess <- function(filename, threshold = 2.5){
+data_preprocess <- function(filename, threshold = 3){
   
   #loading data
   d <- read_csv(paste0("data/", filename))
+  
+  # renaming the TimeMs column to time to conform study 4 to the others
+  names(d)[names(d) == "TimeMs"] <- "time"
+  
+  # Downsample
+  d <- d %>% group(n = 400, method = "greedy") %>% 
+    dplyr::summarise(time = mean(time, na.rm = T),
+                   HR1 = mean(HR1, na.rm = T),
+                   HR2 = mean(HR2, na.rm = T),
+                   Resp1 = mean(Resp1, na.rm = T),
+                   Resp2 = mean(Resp2, na.rm = T))
   
   # creating columns from filenames
   d$Trial <- ""
@@ -486,7 +497,8 @@ data_preprocess <- function(filename, threshold = 2.5){
   d$Study <- ""
   d$Study <- str_extract(filename, "Study.")
   d$Group <- ""
-  d$Group <- str_extract(filename, "G.")
+  d$Group <- str_extract(filename, "G..")
+  str_replace_all(d$Group, "[[:punct:]]", "")
   d$Task <- ""
   d$Task <- str_extract(filename, "........csv")
   
@@ -499,26 +511,6 @@ data_preprocess <- function(filename, threshold = 2.5){
   
   # Making a unique ID column
   d$ID <- paste(d$Study, d$Group, sep = "", collapse = NULL)
-  
-  #
-  if (d$Study == "4") {
-    d <- d %>% rename(time = TimeMs)
-  }
-  
-  # Downsample
-  d <- d %>%
-    group(n = 100, method = "greedy") %>% #when you downsample by 100, you measure the mean of those 100 rows, see below.
-    dplyr::summarise(ID = ID, 
-                   Study = Study,
-                   Group = Group,
-                   Task = Task,
-                   Trial = Trial,
-                   time = mean(time, na.rm = F), # this may cause trouble ?? for sets without
-                   #TimeMs = mean(TimeMs, na.rm = F), # let's cross our fingers
-                   HR1 = mean(HR1, na.rm = T),
-                   HR2 = mean(HR2, na.rm = T),
-                   Resp1 = mean(Resp1, na.rm = T),
-                   Resp2 = mean(Resp2, na.rm = T))
   
   # Removing outliers
   d <- d %>%
@@ -539,7 +531,7 @@ data_preprocess <- function(filename, threshold = 2.5){
 
 
 #  Identify all files to be read
-filenames_list <- list.files(path = "/Users/laerkebraedder/Desktop/Uni/ExpMeth3/Assignment/methods3_A4/data/", pattern = "*.csv")
+filenames_list <- list.files(path = "data/", pattern = "*.csv")
 
 # Run the function on the whole dataset using map_df
 d1 <- map_df(filenames_list, data_preprocess)
@@ -555,7 +547,18 @@ d1 <- map_df(filenames_list, data_preprocess)
 
 
 # plots plots plots
-
+p <- d1 %>% 
+  subset(Study =="1" & Task == "Synchronous") %>%
+  group_by(ID) %>%
+  mutate(time = seq(n())) %>%
+  subset(ID == 11) %>%
+  ggplot() + 
+  geom_line(aes(time, Resp1, colour = "Resp1")) + 
+  geom_line(aes(time, Resp2, colour = "Resp2")) + 
+  labs(y = "Resp") + 
+  theme_classic() + 
+  facet_wrap(Task ~ ., ncol = 1)
+p
 
 # Remove bad data
 
@@ -588,30 +591,50 @@ Bonus question: what if we include an additional layer? Is my heart rate just ad
 
 ```{r}
 
-# Generate a column for each: previous HR1, HR2, Resp1, Resp2. Tip: use the function Lag()
-d1$HR1_lead <- stats::lag(d1$HR1, -1)
-d1$HR2_lead <- stats::lag(d1$HR2, -1)
+# Make the data long, so we can analyze both participants at the same time. Tip: you can use the function gather () 
 
-d1$Resp1_lead <- stats::lag(d1$Resp1, -1)
-d1$Resp2_lead <- stats::lag(d1$Resp2, -1)
+subset1 <- dplyr::select(d1, Trial, Study, Group, Task, ID, time, HR1, HR2, Resp1, Resp2)
+subset1 <- data.table::setnames(subset1, "HR1", "HR_self")
+subset1 <- data.table::setnames(subset1, "Resp1", "Resp_self")
+subset1 <- data.table::setnames(subset1, "HR2", "HR_other")
+subset1 <- data.table::setnames(subset1, "Resp2", "Resp_other")
+
+subset2 <- dplyr::select(d1, Trial, Study, Group, Task, ID, time, HR2, HR1, Resp2, Resp1)
+subset1 <- data.table::setnames(subset2, "HR2", "HR_self")
+subset1 <- data.table::setnames(subset2, "Resp2", "Resp_self")
+subset2 <- data.table::setnames(subset2, "HR1", "HR_other")
+subset2 <- data.table::setnames(subset2, "Resp1", "Resp_other")
+
+subset1$Participant <- 1
+subset2$Participant <- 2
+
+# Making unique ID per participant:
+subset1$ParticipantID <- paste(subset1$ID, subset1$Participant, sep = "", collapse = NULL)
+subset2$ParticipantID <- paste(subset2$ID, subset2$Participant, sep = "", collapse = NULL)
+
+# Merging the two
+dlong <- rbind(subset1, subset2)
+
+
+
+# Generate a column for each: previous HR1, HR2, Resp1, Resp2. Tip: use the function Lag()
+pacman::p_load(stats, Hmisc)
+
+
+dlong$HR_self_lag <- Hmisc::Lag(dlong$HR_self)
+dlong$HR_other_lag <- Hmisc::Lag(dlong$HR_other)
+
+dlong$Resp_self_lag <- Hmisc::Lag(dlong$Resp_self)
+dlong$Resp_other_lag <- Hmisc::Lag(dlong$Resp_other)
 
 # Generate a column for each: change in HR1, HR2, Resp1, Resp2
-d1$HR1_change <- d1$HR1_lead - d1$HR1
-d1$HR1_change <- d1$HR1_lead - d1$HR1
+dlong$HR_self_change <- dlong$HR_self_lag - dlong$HR_self
+dlong$HR_other_change <- dlong$HR_other_lag - dlong$HR_other
 
-d1$HR1_change <- d1$HR1_lead - d1$HR1
-d1$HR1_change <- d1$HR1_lead - d1$HR1
+dlong$HR_self_change <- dlong$HR_self_lag - dlong$HR_self
+dlong$HR_other_change <- dlong$HR_other_lag - dlong$HR_other
 
-# Make the data long, so we can analyze both participants at the same time. Tip: you can use the function gather () 
-gather(
-  d1,
-  key = "key",
-  value = "value",
-  ...,
-  na.rm = FALSE,
-  convert = FALSE,
-  factor_key = FALSE
-)
+
 
 ## N.B. This is a bit tricky and you might have to do it in several steps
 # Set the most interesting contrast e.g. by defining synchronous or conversation as the baseline
