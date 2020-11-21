@@ -498,7 +498,7 @@ data_preprocess <- function(filename, threshold = 3){
   d$Study <- str_extract(filename, "Study.")
   d$Group <- ""
   d$Group <- str_extract(filename, "G..")
-  str_replace_all(d$Group, "[[:punct:]]", "")
+  d$Group <- str_replace_all(d$Group, "[[:punct:]]", "")
   d$Task <- ""
   d$Task <- str_extract(filename, "........csv")
   
@@ -600,8 +600,8 @@ subset1 <- data.table::setnames(subset1, "HR2", "HR_other")
 subset1 <- data.table::setnames(subset1, "Resp2", "Resp_other")
 
 subset2 <- dplyr::select(d1, Trial, Study, Group, Task, ID, time, HR2, HR1, Resp2, Resp1)
-subset1 <- data.table::setnames(subset2, "HR2", "HR_self")
-subset1 <- data.table::setnames(subset2, "Resp2", "Resp_self")
+subset2 <- data.table::setnames(subset2, "HR2", "HR_self")
+subset2 <- data.table::setnames(subset2, "Resp2", "Resp_self")
 subset2 <- data.table::setnames(subset2, "HR1", "HR_other")
 subset2 <- data.table::setnames(subset2, "Resp1", "Resp_other")
 
@@ -618,27 +618,45 @@ dlong <- rbind(subset1, subset2)
 
 
 # Generate a column for each: previous HR1, HR2, Resp1, Resp2. Tip: use the function Lag()
-pacman::p_load(stats, Hmisc)
+pacman::p_load(Hmisc, tidyverse)
 
+dlong <- dlong %>%
+  group_by(ParticipantID, Task) %>%
+  mutate(HR_self_lag = Hmisc::Lag(HR_self, -1),
+         HR_other_lag = Hmisc::Lag(HR_other, -1),
+         Resp_self_lag = Hmisc::Lag(Resp_self, -1),
+         Resp_other_lag = Hmisc::Lag(Resp_other, -1))
 
-dlong$HR_self_lag <- Hmisc::Lag(dlong$HR_self)
-dlong$HR_other_lag <- Hmisc::Lag(dlong$HR_other)
-
-dlong$Resp_self_lag <- Hmisc::Lag(dlong$Resp_self)
-dlong$Resp_other_lag <- Hmisc::Lag(dlong$Resp_other)
 
 # Generate a column for each: change in HR1, HR2, Resp1, Resp2
 dlong$HR_self_change <- dlong$HR_self_lag - dlong$HR_self
 dlong$HR_other_change <- dlong$HR_other_lag - dlong$HR_other
 
-dlong$HR_self_change <- dlong$HR_self_lag - dlong$HR_self
-dlong$HR_other_change <- dlong$HR_other_lag - dlong$HR_other
+dlong$Resp_self_change <- dlong$Resp_self_lag - dlong$Resp_self
+dlong$Resp_other_change <- dlong$Resp_other_lag - dlong$Resp_other
+
+
 
 
 
 ## N.B. This is a bit tricky and you might have to do it in several steps
 # Set the most interesting contrast e.g. by defining synchronous or conversation as the baseline
 # Model change as a function of own and other previous state 
+pacman::p_load(lme4, lmerTest)
+
+dlong <- dlong %>%
+  mutate(diff = HR_other - HR_self)
+
+
+HR_m1 <- lm(HR_self_change ~ (HR_self + HR_other) : Task, subset(dlong, Study == "3" & ParticipantID == 342))
+
+HR_m2 <- lmerTest::lmer(HR_self_change ~ (HR_self + diff) : Task + (1 + Task | ParticipantID), subset(dlong, Study == "3"), REML = F, control = lmerControl(optimizer = "nloptwrap", calc.derivs = F))
+
+summary(HR_m2)
+
+# Output interpretation in M10 Part 3 (2:40)
+
+
 # Bonus points: Add to the previous model also change in the other to see whether my adaptation is influenced by the other's adaptation.
 ```
 
