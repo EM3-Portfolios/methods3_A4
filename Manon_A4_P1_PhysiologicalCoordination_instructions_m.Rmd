@@ -163,10 +163,11 @@ data_preprocess <- function(filename, threshold = 3){
   d <- read_csv(paste0("data/", filename))
   
   # renaming the TimeMs column to time to conform study 4 to the others
+  # https://www.datanovia.com/en/lessons/rename-data-frame-columns-in-r/
   names(d)[names(d) == "TimeMs"] <- "time"
   
   # Downsample
-  d <- d %>% group(n = 400, method = "greedy") %>% 
+  d <- d %>% group(n = 100, method = "greedy") %>% 
     dplyr::summarise(time = mean(time, na.rm = T),
                    HR1 = mean(HR1, na.rm = T),
                    HR2 = mean(HR2, na.rm = T),
@@ -179,7 +180,8 @@ data_preprocess <- function(filename, threshold = 3){
   d$Study <- ""
   d$Study <- str_extract(filename, "Study.")
   d$Group <- ""
-  d$Group <- str_extract(filename, "G.")
+  d$Group <- str_extract(filename, "G..")
+  d$Group <- str_replace_all(d$Group, "[[:punct:]]", "")
   d$Task <- ""
   d$Task <- str_extract(filename, "........csv")
   
@@ -195,16 +197,16 @@ data_preprocess <- function(filename, threshold = 3){
   
   # Removing outliers
   d <- d %>%
-    mutate(HR1_c = removeOuts(HR1, threshold),   # right now we are keeping the old data
-         HR2_c = removeOuts(HR2, threshold),     # we may remove later if we don't need
-         Resp1_c = removeOuts(Resp1, threshold),
-         Resp2_c = removeOuts(Resp2, threshold))
+    mutate(HR1 = removeOuts(HR1, threshold),
+         HR2 = removeOuts(HR2, threshold),
+         Resp1 = removeOuts(Resp1, threshold),
+         Resp2 = removeOuts(Resp2, threshold))
   
   # Scale
-  d$Resp1S <- scale(d$Resp1_c)
-  d$Resp2S <- scale(d$Resp2_c)
-  d$HR1S <- scale(d$HR1_c)
-  d$HR2S <- scale(d$HR2_c)
+  d$Resp1 <- scale(d$Resp1)
+  d$Resp2 <- scale(d$Resp2)
+  d$HR1 <- scale(d$HR1)
+  d$HR2 <- scale(d$HR2)
   
   return(d)
 }
@@ -216,8 +218,9 @@ filenames_list <- list.files(path = "/Users/manon/Desktop/3. Semester/Experiment
 
 # Run the function on the whole dataset using map_df
 d1 <- map_df(filenames_list, data_preprocess)
-
 ```
+
+
 
 ```{r plotting, inspecting and saving data}
 # Now we need to make sure all the data are meaningful or something has to be removed
@@ -225,14 +228,16 @@ d1 <- map_df(filenames_list, data_preprocess)
 
 # plots plots plots
 
+#-----------------------
+# INSPECTING THE HR DATA
 plot_taskpergroup <- function(id, d1){
   p <- d1 %>% 
     group_by(ID) %>%
     mutate(time = seq(n())) %>% #"this is where we are going to solve that issue"
     subset(ID == id) %>%
     ggplot() + 
-    geom_line(aes(time, HR1S, color ="HR1")) + 
-    geom_line(aes(time, HR2S, color = "HR2")) + #plotting 2 lines
+    geom_line(aes(time, HR1, color ="HR1")) + 
+    geom_line(aes(time, HR2, color = "HR2")) + #plotting 2 lines
     labs(y = "HR") +
     ggtitle(paste("HR for each person of group ", id, " in each condition")) +
     theme_classic() + 
@@ -242,9 +247,58 @@ plot_taskpergroup <- function(id, d1){
 }
 
 plot_taskpergroup(11, d1)
-#unique IDs: "11" "12" "13" "14" "21" "25" "26" "27" "28" "29" "31" "32" "34" "35" "36" "37" "38" "39" "41" "42" "43" "44" "45" "46" "47" "48"
+#unique IDs: "11"  "12"  "13"  "14"  "210" "25"  "26"  "27"  "28"  "29"  "31"  "310" "32"  "34"  "35"  "36"  "37"  "38"  "39"  "41"  "42" "43"  "44"  "45"  "46"  "47"  "48" 
+# nederst i group ID 27 mangler der 139 rækker af TurnTaking task
+# group 29: HR2 has a strone in beginning
+# Study 4 has 5 tasks instead of 3
+# group 48: HR1 hits both min and max
 
+p <- d1 %>% 
+  subset(Task == "MovementCoop") %>%
+  group_by(ID) %>%
+  mutate(time = seq(n())) %>% #"this is where we are going to solve that issue"
+  subset(ID == 48) %>%
+  ggplot() + geom_line(aes(time, HR1, color ="HR1")) + geom_line(aes(time, HR2, color = "HR2")) + #plotting 2 lines
+  labs(y = "HR") +
+  theme_classic()
+p
+
+#--------------------------------
+# INSPECTING THE RESPIRATION DATA
+plot_taskpergroup_Resp <- function(id, d1){
+  p <- d1 %>% 
+    group_by(ID) %>%
+    mutate(time = seq(n())) %>% #"this is where we are going to solve that issue"
+    subset(ID == id) %>%
+    ggplot() + 
+    geom_line(aes(time, Resp1, color ="Resp1")) + 
+    geom_line(aes(time, Resp2, color = "Resp2")) + #plotting 2 lines
+    labs(y = "Respiration") +
+    ggtitle(paste("Respiration for each person of group ", id, " in each condition")) +
+    theme_classic() + 
+    facet_wrap(Task ~., ncol = 1)
+  p
+  return(p)
+}
+plot_taskpergroup_Resp(11, d1)
+#unique IDs: "11"  "12"  "13"  "14"  "210" "25"  "26"  "27"  "28"  "29"  "31"  "310" "32"  "34"  "35"  "36"  "37"  "38"  "39"  "41"  "42" "43"  "44"  "45"  "46"  "47"  "48" 
+# Group 11: Resp 1 is bad in tasks synchronous and turntaking (lowerlimit mainly)
+# group 12: Resp 2 is bad in tasks synchronous and turntaking
+# group 27 have 139 rows containing missing values
+# group 37 Resp 2 has a slight problem with lowerlimit in turntaking task
+# group 39: Resp 1 in synchronous lowerlim problem
+
+
+# OH. My. God. should we remove outliers while grouping by group and task? So only values that are outliers for that person in that task are removed? so we don't remove one persons values just because they are different compared to other participants?
+
+
+#----
 # Remove bad data
+#M: Okay, how do we do this? we could just specify that all data that 'hits' the upper and lower limits be removed/ turned to NA's
+#M: but then we could have just done that to begin with in the removeOuts function...
+#M: What would happen if we remove a datapoint for one participant? Then the whole row will be removed because we removeOuts 
+#M: before we make individuals participant rows... (so both partners' data is gone. but will we then have those ugly lines in our plots? )
+
 # Save the data
 ```
 
@@ -273,10 +327,49 @@ Bonus question: what if we include an additional layer? Is my heart rate just ad
 
 
 ```{r}
-# Generate a column for each: previous HR1, HR2, Resp1, Resp2. Tip: use the function Lag()
-# Generate a column for each: change in HR1, HR2, Resp1, Resp2
-# Make the data long, so we can analyze both participants at the same time. Tip: you can use the function gather () 
+# Make the data long, so we can analyze both participants at the same time. Tip: you can use the function gather ()
 ## N.B. This is a bit tricky and you might have to do it in several steps
+# Lærke's manual way:
+subset1 <- dplyr::select(d1, Trial, Study, Group, Task, ID, time, HR1, HR2, Resp1, Resp2)
+subset1 <- data.table::setnames(subset1, "HR1", "HR_self")
+subset1 <- data.table::setnames(subset1, "Resp1", "Resp_self")
+subset1 <- data.table::setnames(subset1, "HR2", "HR_other")
+subset1 <- data.table::setnames(subset1, "Resp2", "Resp_other")
+
+subset2 <- dplyr::select(d1, Trial, Study, Group, Task, ID, time, HR2, HR1, Resp2, Resp1)
+subset2 <- data.table::setnames(subset2, "HR2", "HR_self")
+subset2 <- data.table::setnames(subset2, "Resp2", "Resp_self")
+subset2 <- data.table::setnames(subset2, "HR1", "HR_other")
+subset2 <- data.table::setnames(subset2, "Resp1", "Resp_other")
+
+subset1$Participant <- 1
+subset2$Participant <- 2
+
+# Making unique ID per participant:
+subset1$ParticipantID <- paste(subset1$ID, subset1$Participant, sep = "", collapse = NULL)
+subset2$ParticipantID <- paste(subset2$ID, subset2$Participant, sep = "", collapse = NULL)
+
+# Merging the two
+dlong <- rbind(subset1, subset2)
+
+
+
+# Generate a column for each: previous HR1, HR2, Resp1, Resp2. Tip: use the function Lag()
+# Lærke's manual way:
+d1$HR1_lead <- stats::lag(d1$HR1, -1)
+d1$HR2_lead <- stats::lag(d1$HR2, -1)
+
+d1$Resp1_lead <- stats::lag(d1$Resp1, -1)
+d1$Resp2_lead <- stats::lag(d1$Resp2, -1)
+
+# Generate a column for each: change in HR1, HR2, Resp1, Resp2
+# Lærke's manual way:
+d1$HR1_change <- d1$HR1_lead - d1$HR1
+d1$HR1_change <- d1$HR1_lead - d1$HR1
+
+d1$HR1_change <- d1$HR1_lead - d1$HR1
+d1$HR1_change <- d1$HR1_lead - d1$HR1
+
 # Set the most interesting contrast e.g. by defining synchronous or conversation as the baseline
 # Model change as a function of own and other previous state 
 # Bonus points: Add to the previous model also change in the other to see whether my adaptation is influenced by the other's adaptation.
