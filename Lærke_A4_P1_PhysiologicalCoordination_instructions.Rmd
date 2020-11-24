@@ -562,6 +562,30 @@ p
 
 # Remove bad data
 
+lowerLim <- function(data, id, task, input){
+  d1 %>% 
+  subset <- subset(ID == id & Task == task & Input == input)
+  Input[Input == min(Input)] <- NA
+}
+ 
+
+upperLim <- function(data, id, task, input){
+  subset <- subset(data, ID == id & Task == task)
+  subset$input[subset$input == max(subset$input)] <- NA
+  
+  return()
+}
+
+
+  
+list <- c( 1, 4, 3, 6, 1, 6, 3, 8, 9)
+list2 <- c( 1, 4, 3, 6, 1, 6, 3, 8, 9)
+listdf <- as.data.frame(cbind(list, list2))
+
+listdf$list <- dplyr::na_if(listdf$list, min(listdf$list))
+
+
+listdf$list2[listdf$list2 == min(listdf$list2)] <- NA
 
 # Save the data
 
