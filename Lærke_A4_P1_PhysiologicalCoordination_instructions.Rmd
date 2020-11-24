@@ -694,10 +694,61 @@ First shuffled controls, then surrogate pairs.
 Shuffled controls break the temporal dependencies of time-series by shuffling the value within one time-series. This ensures the "coordination" observed is not due to the actual values in the series and not their sequence.
 Tip: sample() is your friend, but make sure to shuffle things within participant/condition and not throughout the whole dataset
  
-```{r}
+
+```{r shuffle}
 # Create a shuffled dataset
+pacman::p_load(tidyverse)
+
+control <- dlong %>% 
+  group_by(ParticipantID) %>%
+  mutate(HR_self = HR_self[sample(row_number())],
+         HR_other = HR_other[sample(row_number())],
+         Resp_self = Resp_self[sample(row_number())],
+         Resp_other = Resp_other[sample(row_number())]
+         )
+
+control$Control <- 1
+
+# Making lag and change values based on the new self and other values:
+control <- control %>%
+  group_by(ParticipantID, Task) %>%
+  mutate(HR_self_lag = Hmisc::Lag(HR_self, -1),
+         HR_other_lag = Hmisc::Lag(HR_other, -1),
+         Resp_self_lag = Hmisc::Lag(Resp_self, -1),
+         Resp_other_lag = Hmisc::Lag(Resp_other, -1))
+
+# Generate a column for each: change in HR1, HR2, Resp1, Resp2
+control$HR_self_change <- control$HR_self_lag - control$HR_self
+control$HR_other_change <- control$HR_other_lag - control$HR_other
+
+control$Resp_self_change <- control$Resp_self_lag - control$Resp_self
+control$Resp_other_change <- control$Resp_other_lag - control$Resp_other
+
+control$diff <- NULL
+control$ParticipantID <- paste0(control$ParticipantID, "_c")
+
+
 # Concatenate it to the original dataset (and remember to have a column telling you which is which)
+dlonger <- dlong
+
+dlonger$diff <- NULL
+
+dlonger$Control <- 0
+
+dlonger <- rbind(dlonger, control)
+dlonger$ID <- NULL 
+
+
 # Create the same models as in the previous chunk, but adding an interaction by shuffled vs. real
+pacman::p_load(lme4, lmerTest)
+
+dlonger <- dlonger %>%
+  mutate(diff = HR_other - HR_self)
+
+HR_m2_shuff <- lmerTest::lmer(HR_self_change ~ (HR_self + diff + Control) : Task + (1 + Task | ParticipantID), subset(dlonger, Study == "3"), REML = F, control = lmerControl(optimizer = "nloptwrap", calc.derivs = F))
+
+summary(HR_m2_shuff)
+
 ```
  
  
