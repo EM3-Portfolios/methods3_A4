@@ -246,7 +246,7 @@ plot_taskpergroup <- function(id, d1){
   return(p)
 }
 
-plot_taskpergroup(11, d1)
+plot_taskpergroup(14, d1)
 #unique IDs: "11"  "12"  "13"  "14"  "210" "25"  "26"  "27"  "28"  "29"  "31"  "310" "32"  "34"  "35"  "36"  "37"  "38"  "39"  "41"  "42" "43"  "44"  "45"  "46"  "47"  "48" 
 # nederst i group ID 27 mangler der 139 rækker af TurnTaking task
 # group 29: HR2 has a strone in beginning
@@ -298,6 +298,26 @@ plot_taskpergroup_Resp(11, d1)
 #M: but then we could have just done that to begin with in the removeOuts function...
 #M: What would happen if we remove a datapoint for one participant? Then the whole row will be removed because we removeOuts 
 #M: before we make individuals participant rows... (so both partners' data is gone. but will we then have those ugly lines in our plots? )
+
+# making functions that remove lowerlim values and upperlim values repsectively:
+# we need to know which group/ID, participant/(HR1, HR2, Resp1, Resp2), task, and what the limit is. and of course what data.
+lowerlim_toNA <- function(data, id, task, input){ # the input is HR1, HR2, Resp1 or Resp2
+  data %>%
+    subset(ID == id & Task == task) %>%
+    input[input == min(input)] <- NA
+}
+
+lowerlim_toNA <- function(data, id, task, input){ # the input is HR1, HR2, Resp1 or Resp2
+  if(data$ID == id & data$Task == task){
+    data <- data %>% input[input == min(input)] <- NA
+  }
+}
+
+d_nobad <- d1
+lowerlim_toNA(d_nobad, "12", "Synchronous", Resp2)
+plot_taskpergroup_Resp(12, d_nobad)
+
+
 
 # Save the data
 ```
@@ -356,19 +376,23 @@ dlong <- rbind(subset1, subset2)
 
 # Generate a column for each: previous HR1, HR2, Resp1, Resp2. Tip: use the function Lag()
 # Lærke's manual way:
-d1$HR1_lead <- stats::lag(d1$HR1, -1)
-d1$HR2_lead <- stats::lag(d1$HR2, -1)
+dlong$HR_self_lag <- Hmisc::Lag(dlong$HR_self)
+dlong$HR_other_lag <- Hmisc::Lag(dlong$HR_other)
 
-d1$Resp1_lead <- stats::lag(d1$Resp1, -1)
-d1$Resp2_lead <- stats::lag(d1$Resp2, -1)
+dlong$Resp_self_lag <- Hmisc::Lag(dlong$Resp_self)
+dlong$Resp_other_lag <- Hmisc::Lag(dlong$Resp_other)
+
+
 
 # Generate a column for each: change in HR1, HR2, Resp1, Resp2
 # Lærke's manual way:
-d1$HR1_change <- d1$HR1_lead - d1$HR1
-d1$HR1_change <- d1$HR1_lead - d1$HR1
+dlong$HR_self_change <- dlong$HR_self_lag - dlong$HR_self
+dlong$HR_other_change <- dlong$HR_other_lag - dlong$HR_other
 
-d1$HR1_change <- d1$HR1_lead - d1$HR1
-d1$HR1_change <- d1$HR1_lead - d1$HR1
+dlong$HR_self_change <- dlong$HR_self_lag - dlong$HR_self
+dlong$HR_other_change <- dlong$HR_other_lag - dlong$HR_other
+
+
 
 # Set the most interesting contrast e.g. by defining synchronous or conversation as the baseline
 # Model change as a function of own and other previous state 
