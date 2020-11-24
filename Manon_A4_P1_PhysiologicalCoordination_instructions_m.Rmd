@@ -152,7 +152,7 @@ A couple of tips:
 - you need to make sure all the data are meaningful or something has to be removed. Plotting is your friend. E.g. "Study1_G1_T1_Synchronous" has one bad respiration signal. We could replace it with NAs
 
 
-```{r data preprocessing function <3 <3 <3}
+```{r Data preprocessing function <3 <3 <3}
 # Define a function running the loading, artifact removal, scaling, downsampling, info adding.
 
 d1 <- as.data.frame(NULL)
@@ -222,7 +222,7 @@ d1 <- map_df(filenames_list, data_preprocess)
 
 
 
-```{r plotting, inspecting and saving data}
+```{r Potting, inspecting and saving data}
 # Now we need to make sure all the data are meaningful or something has to be removed
 # E.g. "Study1_G1_T1_Synchronous" has one bad respiration signal. We could replace it with NAs
 
@@ -304,12 +304,12 @@ plot_taskpergroup_Resp(11, d1)
 lowerlim_toNA <- function(data, id, task, input){ # the input is HR1, HR2, Resp1 or Resp2
   data %>%
     subset(ID == id & Task == task) %>%
-    input[input == min(input)] <- NA
+    input[input == min(input, na.rm = T)] <- NA
 }
 
 lowerlim_toNA <- function(data, id, task, input){ # the input is HR1, HR2, Resp1 or Resp2
   if(data$ID == id & data$Task == task){
-    data <- data %>% input[input == min(input)] <- NA
+    data <- data %>% input[input == min(input, na.rm = T)] <- NA
   }
 }
 
@@ -317,8 +317,9 @@ d_nobad <- d1
 lowerlim_toNA(d_nobad, "12", "Synchronous", Resp2)
 plot_taskpergroup_Resp(12, d_nobad)
 
+view(d1[d1$Group == 1])
 
-
+m
 # Save the data
 ```
 
@@ -346,7 +347,7 @@ Bonus question: what if we include an additional layer? Is my heart rate just ad
 - we can then build on the previous models by also adding the previous change in the other
 
 
-```{r}
+```{r Making data long and lagging}
 # Make the data long, so we can analyze both participants at the same time. Tip: you can use the function gather ()
 ## N.B. This is a bit tricky and you might have to do it in several steps
 # Lærke's manual way:
@@ -399,6 +400,10 @@ dlong$HR_other_change <- dlong$HR_other_lag - dlong$HR_other
 # Bonus points: Add to the previous model also change in the other to see whether my adaptation is influenced by the other's adaptation.
 ```
 
+```{r Models}
+
+```
+
 
 ## Now we need to create control baselines.
 
@@ -409,17 +414,20 @@ First shuffled controls, then surrogate pairs.
 Shuffled controls break the temporal dependencies of time-series by shuffling the value within one time-series. This ensures the "coordination" observed is not due to the actual values in the series and not their sequence.
 Tip: sample() is your friend, but make sure to shuffle things within participant/condition and not throughout the whole dataset
  
-```{r}
+```{r Shuffled controls}
 # Create a shuffled dataset
+
+
 # Concatenate it to the original dataset (and remember to have a column telling you which is which)
 # Create the same models as in the previous chunk, but adding an interaction by shuffled vs. real
+
 ```
  
  
 ### TRICKY! Creating controls: surrogate pair controls
  - Per each real pair, identify at least one surrogate pair (matching one of the participants, with somebody doing the same task, but in a different pair)
 
-```{r}
+```{r Surrogate pair controls}
 # Identify unique pairs within a given study (to keep things manageable) and create list of possible surrogate pairs (e.g. individual 1 from pair 1 and individual 2 from pair 2)
 # Starting from the wide format, create "surrogate" dataset with the data from surrogate pairs
 # Make it into long format
