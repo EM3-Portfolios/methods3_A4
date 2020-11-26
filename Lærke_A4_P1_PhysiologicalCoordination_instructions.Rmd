@@ -94,7 +94,7 @@ removeOuts <- function(ts, threshold){
   return(ts)
 }
 
-threshold = 2.5
+threshold = 3
 
 singlefile <- singlefile %>%
   mutate(HR1_c = removeOuts(HR1, threshold),
@@ -471,7 +471,35 @@ data_lists$HR2S <- scale(data_lists$HR2_c)
 
 
 
+
+
+
+
+
+```{r Replacing outliers with NAs}
+
+pacman::p_load(tidyverse, groupdata2)
+
+
+
+replaceOutsNA <- function(ts, threshold){
+  higher_threshold_condition <- ts > (mean(ts, na.rm = T) + (threshold*sd(ts, na.rm = T)))
+  lower_threshold_condition <- ts < (mean(ts, na.rm = T) - (threshold*sd(ts, na.rm = T)))
+  ts[higher_threshold_condition] <- NA
+  ts[lower_threshold_condition] <- NA
+  return(ts)
+}
+
+threshold = 3
+
+# The latest changes made was to adjust this function, and then insert it in the function below (lines 540-543), in that function I also now remove the rows with NAs in them (line 545).
+```
+
+
+
+
 ```{r Function}
+
 
 d1 <- as.data.frame(NULL)
 
@@ -514,10 +542,11 @@ data_preprocess <- function(filename, threshold = 3){
   
   # Removing outliers
   d <- d %>%
-    mutate(HR1 = removeOuts(HR1, threshold),   # right now we are keeping the old data
-         HR2 = removeOuts(HR2, threshold),     # we may remove later if we don't need
-         Resp1 = removeOuts(Resp1, threshold),
-         Resp2 = removeOuts(Resp2, threshold))
+    mutate(HR1 = replaceOutsNA(HR1, threshold),   # right now we are keeping the old data
+         HR2 = replaceOutsNA(HR2, threshold),     # we may remove later if we don't need
+         Resp1 = replaceOutsNA(Resp1, threshold),
+         Resp2 = replaceOutsNA(Resp2, threshold))
+  d <- na.omit(d, cols = c("HR1", "HR2", "Resp1", "Resp2"), invert = FALSE)
   
   # Scale
   d$Resp1 <- scale(d$Resp1)
@@ -546,46 +575,49 @@ d1 <- map_df(filenames_list, data_preprocess)
 # E.g. "Study1_G1_T1_Synchronous" has one bad respiration signal. We could replace it with NAs
 
 
-# plots plots plots
+# INSPECTING THE HR DATA
+plot_taskpergroup <- function(id, d1){
+  p <- d1 %>% 
+    group_by(ID) %>%
+    mutate(time = seq(n())) %>% #"this is where we are going to solve that issue"
+    subset(ID == id) %>%
+    ggplot() + 
+    geom_line(aes(time, HR1, color ="HR1")) + 
+    geom_line(aes(time, HR2, color = "HR2")) + #plotting 2 lines
+    labs(y = "HR") +
+    ggtitle(paste("HR for each person of group ", id, " in each condition")) +
+    theme_classic() + 
+    facet_wrap(Task ~., ncol = 1)
+  p
+  return(p)
+}
+
+plot_taskpergroup(11, d1)
+#unique IDs: "11"  "12"  "13"  "14"  "210" "25"  "26"  "27"  "28"  "29"  "31"  "310" "32"  "34"  "35"  "36"  "37"  "38"  "39"  "41"  "42" "43"  "44"  "45"  "46"  "47"  "48" 
+# nederst i group ID 27 mangler der 139 rækker af TurnTaking task
+# group 29: HR2 has a strone in beginning
+# Study 4 has 5 tasks instead of 3
+# group 48: HR1 hits both min and max
+
 p <- d1 %>% 
-  subset(Study =="1" & Task == "Synchronous") %>%
+  subset(Task == "MovementCoop") %>%
   group_by(ID) %>%
-  mutate(time = seq(n())) %>%
-  subset(ID == 11) %>%
-  ggplot() + 
-  geom_line(aes(time, Resp1, colour = "Resp1")) + 
-  geom_line(aes(time, Resp2, colour = "Resp2")) + 
-  labs(y = "Resp") + 
-  theme_classic() + 
-  facet_wrap(Task ~ ., ncol = 1)
+  mutate(time = seq(n())) %>% #"this is where we are going to solve that issue"
+  subset(ID == 48) %>%
+  ggplot() + geom_line(aes(time, HR1, color ="HR1")) + geom_line(aes(time, HR2, color = "HR2")) + #plotting 2 lines
+  labs(y = "HR") +
+  theme_classic()
 p
 
 # Remove bad data
 
-lowerLim <- function(data, id, task, input){
-  d1 %>% 
-  subset <- subset(ID == id & Task == task & Input == input)
-  Input[Input == min(Input)] <- NA
-}
+#lowerLim <- function(data, id, task, input){
+ # d1 %>% 
+  #subset <- subset(ID == id & Task == task & Input == input)
+  #Input[Input == min(Input)] <- NA
+#}
  
 
-upperLim <- function(data, id, task, input){
-  subset <- subset(data, ID == id & Task == task)
-  subset$input[subset$input == max(subset$input)] <- NA
-  
-  return()
-}
-
-
-  
-list <- c( 1, 4, 3, 6, 1, 6, 3, 8, 9)
-list2 <- c( 1, 4, 3, 6, 1, 6, 3, 8, 9)
-listdf <- as.data.frame(cbind(list, list2))
-
-listdf$list <- dplyr::na_if(listdf$list, min(listdf$list))
-
-
-listdf$list2[listdf$list2 == min(listdf$list2)] <- NA
 
 # Save the data
 
@@ -700,7 +732,7 @@ Tip: sample() is your friend, but make sure to shuffle things within participant
 pacman::p_load(tidyverse)
 
 control <- dlong %>% 
-  group_by(ParticipantID) %>%
+  group_by(ParticipantID, Task) %>%
   mutate(HR_self = HR_self[sample(row_number())],
          HR_other = HR_other[sample(row_number())],
          Resp_self = Resp_self[sample(row_number())],
@@ -740,12 +772,14 @@ dlonger$ID <- NULL
 
 
 # Create the same models as in the previous chunk, but adding an interaction by shuffled vs. real
-pacman::p_load(lme4, lmerTest)
+pacman::p_load(lme4, lmerTest, tidyverse)
 
 dlonger <- dlonger %>%
   mutate(diff = HR_other - HR_self)
 
-HR_m2_shuff <- lmerTest::lmer(HR_self_change ~ (HR_self + diff + Control) : Task + (1 + Task | ParticipantID), subset(dlonger, Study == "3"), REML = F, control = lmerControl(optimizer = "nloptwrap", calc.derivs = F))
+dlonger$Control <- as.factor(dlonger$Control)
+
+HR_m2_shuff <- lmerTest::lmer(HR_self_change ~ ((HR_self + diff) : Task) : Control + (1 + Task | ParticipantID), subset(dlonger, Study == "3"), REML = F, control = lmerControl(optimizer = "nloptwrap", calc.derivs = F))
 
 summary(HR_m2_shuff)
 
@@ -757,10 +791,34 @@ summary(HR_m2_shuff)
 
 ```{r}
 # Identify unique pairs within a given study (to keep things manageable) and create list of possible surrogate pairs (e.g. individual 1 from pair 1 and individual 2 from pair 2)
-# Starting from the wide format, create "surrogate" dataset with the data from surrogate pairs
+
+
+# Starting from the wide format, create "surrogate" data set with the data from surrogate pairs
+surrogate <- d1 %>% 
+  group_by(Study, Task) %>%
+  mutate(HR2 = HR2[sample(row_number())],
+         HR_other = HR_other[sample(row_number())],
+         Resp_self = Resp_self[sample(row_number())],
+         Resp_other = Resp_other[sample(row_number())]
+         )
+
 # Make it into long format
+
+
 # Create models as in chunks above, but adding an interaction with the Real vs. Surrogate variable (exclude shuffled ones for simplicity)
 ```
+ 
+ 
+ 
+```{r}
+df1 <- select(d1, time, HR1, Resp1, Study, Task, ID)
+df2 <- select(d1, time, HR2, Resp2, Study, Task, ID)
+
+
+```
+ 
+ 
+ 
  
 
 ### Effects of respiration coordination on heart rate coordination
