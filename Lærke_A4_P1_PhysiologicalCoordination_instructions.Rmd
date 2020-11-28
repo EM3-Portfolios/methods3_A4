@@ -646,20 +646,31 @@ Bonus question: what if we include an additional layer? Is my heart rate just ad
 
 
 ```{r}
-
 # Make the data long, so we can analyze both participants at the same time. Tip: you can use the function gather () 
 
-subset1 <- dplyr::select(d1, Trial, Study, Group, Task, ID, time, HR1, HR2, Resp1, Resp2)
-subset1 <- data.table::setnames(subset1, "HR1", "HR_self")
-subset1 <- data.table::setnames(subset1, "Resp1", "Resp_self")
-subset1 <- data.table::setnames(subset1, "HR2", "HR_other")
-subset1 <- data.table::setnames(subset1, "Resp2", "Resp_other")
+subset1 <- d1 %>%
+  dplyr::summarise(Trial = Trial,
+                   Study = Study,
+                   Group = Group,
+                   Task = Task,
+                   ID = ID,
+                   time = time,
+                   HR_self = HR1,
+                   HR_other = HR2,
+                   Resp_self = Resp1,
+                   Resp_other = Resp2)
 
-subset2 <- dplyr::select(d1, Trial, Study, Group, Task, ID, time, HR2, HR1, Resp2, Resp1)
-subset2 <- data.table::setnames(subset2, "HR2", "HR_self")
-subset2 <- data.table::setnames(subset2, "Resp2", "Resp_self")
-subset2 <- data.table::setnames(subset2, "HR1", "HR_other")
-subset2 <- data.table::setnames(subset2, "Resp1", "Resp_other")
+subset2 <- d1 %>%
+  dplyr::summarise(Trial = Trial,
+                   Study = Study,
+                   Group = Group,
+                   Task = Task,
+                   ID = ID,
+                   time = time,
+                   HR_self = HR2,
+                   HR_other = HR1,
+                   Resp_self = Resp2,
+                   Resp_other = Resp1)
 
 subset1$Participant <- 1
 subset2$Participant <- 2
@@ -678,37 +689,36 @@ pacman::p_load(Hmisc, tidyverse)
 
 dlong <- dlong %>%
   group_by(ParticipantID, Task) %>%
-  mutate(HR_self_lag = Hmisc::Lag(HR_self, -1),
-         HR_other_lag = Hmisc::Lag(HR_other, -1),
-         Resp_self_lag = Hmisc::Lag(Resp_self, -1),
-         Resp_other_lag = Hmisc::Lag(Resp_other, -1))
+  mutate(HR_self_lead = Hmisc::Lag(HR_self, -1),
+         HR_other_lead = Hmisc::Lag(HR_other, -1),
+         Resp_self_lead = Hmisc::Lag(Resp_self, -1),
+         Resp_other_lead = Hmisc::Lag(Resp_other, -1))
 
 
 # Generate a column for each: change in HR1, HR2, Resp1, Resp2
-dlong$HR_self_change <- dlong$HR_self_lag - dlong$HR_self
-dlong$HR_other_change <- dlong$HR_other_lag - dlong$HR_other
+dlong$HR_self_change <- dlong$HR_self_lead - dlong$HR_self
+dlong$HR_other_change <- dlong$HR_other_lead - dlong$HR_other
 
-dlong$Resp_self_change <- dlong$Resp_self_lag - dlong$Resp_self
-dlong$Resp_other_change <- dlong$Resp_other_lag - dlong$Resp_other
-
-
-
-
-
+dlong$Resp_self_change <- dlong$Resp_self_lead - dlong$Resp_self
+dlong$Resp_other_change <- dlong$Resp_other_lead - dlong$Resp_other
 ## N.B. This is a bit tricky and you might have to do it in several steps
 # Set the most interesting contrast e.g. by defining synchronous or conversation as the baseline
+```
+
+
+```{r Modeling 1}
 # Model change as a function of own and other previous state 
 pacman::p_load(lme4, lmerTest)
 
+# Making a column for the difference in HR between self and other
 dlong <- dlong %>%
   mutate(diff = HR_other - HR_self)
 
 
-HR_m1 <- lm(HR_self_change ~ (HR_self + HR_other) : Task, subset(dlong, Study == "3" & ParticipantID == 342))
+# The model:
+HR_m1 <- lmerTest::lmer(HR_self_change ~ (HR_self + diff) : Task + (1 + Task | ParticipantID), subset(dlong, Study == "3"), REML = F, control = lmerControl(optimizer = "nloptwrap", calc.derivs = F))
 
-HR_m2 <- lmerTest::lmer(HR_self_change ~ (HR_self + diff) : Task + (1 + Task | ParticipantID), subset(dlong, Study == "3"), REML = F, control = lmerControl(optimizer = "nloptwrap", calc.derivs = F))
-
-summary(HR_m2)
+summary(HR_m1)
 
 # Output interpretation in M10 Part 3 (2:40)
 
@@ -744,17 +754,17 @@ control$Control <- 1
 # Making lag and change values based on the new self and other values:
 control <- control %>%
   group_by(ParticipantID, Task) %>%
-  mutate(HR_self_lag = Hmisc::Lag(HR_self, -1),
-         HR_other_lag = Hmisc::Lag(HR_other, -1),
-         Resp_self_lag = Hmisc::Lag(Resp_self, -1),
-         Resp_other_lag = Hmisc::Lag(Resp_other, -1))
+  mutate(HR_self_lead = Hmisc::Lag(HR_self, -1),
+         HR_other_lead = Hmisc::Lag(HR_other, -1),
+         Resp_self_lead = Hmisc::Lag(Resp_self, -1),
+         Resp_other_lead = Hmisc::Lag(Resp_other, -1))
 
 # Generate a column for each: change in HR1, HR2, Resp1, Resp2
-control$HR_self_change <- control$HR_self_lag - control$HR_self
-control$HR_other_change <- control$HR_other_lag - control$HR_other
+control$HR_self_change <- control$HR_self_lead - control$HR_self
+control$HR_other_change <- control$HR_other_lead - control$HR_other
 
-control$Resp_self_change <- control$Resp_self_lag - control$Resp_self
-control$Resp_other_change <- control$Resp_other_lag - control$Resp_other
+control$Resp_self_change <- control$Resp_self_lead - control$Resp_self
+control$Resp_other_change <- control$Resp_other_lead - control$Resp_other
 
 control$diff <- NULL
 control$ParticipantID <- paste0(control$ParticipantID, "_c")
@@ -768,9 +778,11 @@ dlonger$diff <- NULL
 dlonger$Control <- 0
 
 dlonger <- rbind(dlonger, control)
-dlonger$ID <- NULL 
+dlonger$ID <- NULL
+```
 
 
+```{r shuffle - Modeling 2}
 # Create the same models as in the previous chunk, but adding an interaction by shuffled vs. real
 pacman::p_load(lme4, lmerTest, tidyverse)
 
@@ -779,9 +791,9 @@ dlonger <- dlonger %>%
 
 dlonger$Control <- as.factor(dlonger$Control)
 
-HR_m2_shuff <- lmerTest::lmer(HR_self_change ~ ((HR_self + diff) : Task) : Control + (1 + Task | ParticipantID), subset(dlonger, Study == "3"), REML = F, control = lmerControl(optimizer = "nloptwrap", calc.derivs = F))
+HR_m1_shuff <- lmerTest::lmer(HR_self_change ~ 0+ ((HR_self + diff) : Task) : Control + (1 + Task | ParticipantID), subset(dlonger, Study == "3"), REML = F, control = lmerControl(optimizer = "nloptwrap", calc.derivs = F))
 
-summary(HR_m2_shuff)
+summary(HR_m1_shuff)
 
 ```
  
@@ -789,35 +801,167 @@ summary(HR_m2_shuff)
 ### TRICKY! Creating controls: surrogate pair controls
  - Per each real pair, identify at least one surrogate pair (matching one of the participants, with somebody doing the same task, but in a different pair)
 
-```{r}
-# Identify unique pairs within a given study (to keep things manageable) and create list of possible surrogate pairs (e.g. individual 1 from pair 1 and individual 2 from pair 2)
+ 
+```{r surrogate}
+# Making a copy dataset to work with (just in case we change something in it)
+d2 <- d1
+
+pacman::p_load(Hmisc, tidyverse)
+
+# Creating the change and lead columns in this data
+d2 <- d2 %>%
+  group_by(ID, Task) %>%
+  mutate(HR1_lead = Hmisc::Lag(HR1, -1),
+         HR2_lead = Hmisc::Lag(HR2, -1),
+         Resp1_lead = Hmisc::Lag(Resp1, -1),
+         Resp2_lead = Hmisc::Lag(Resp2, -1))
 
 
-# Starting from the wide format, create "surrogate" data set with the data from surrogate pairs
-surrogate <- d1 %>% 
-  group_by(Study, Task) %>%
-  mutate(HR2 = HR2[sample(row_number())],
-         HR_other = HR_other[sample(row_number())],
-         Resp_self = Resp_self[sample(row_number())],
-         Resp_other = Resp_other[sample(row_number())]
-         )
+# Generate a column for each: change in HR1, HR2, Resp1, Resp2
+d2$HR1_change <- d2$HR1_lead - d2$HR1
+d2$HR2_change <- d2$HR2_lead - d2$HR2
 
-# Make it into long format
+d2$Resp1_change <- d2$Resp1_lead - d2$Resp1
+d2$Resp2_change <- d2$Resp2_lead - d2$Resp2
 
 
-# Create models as in chunks above, but adding an interaction with the Real vs. Surrogate variable (exclude shuffled ones for simplicity)
+
+# Create vector with group IDs / Lists with group Id per individual study:
+d2$ID <- as.numeric(as.character(d2$ID))
+d2$Task <- as.factor(d2$Task)
+
+# Making new pairs:
+Groups <- unique(d2$ID[d2$Study == 1])
+SurrogateList1 <- expand.grid(a = Groups, b = Groups)
+SurrogateList1 <- subset(SurrogateList1, a != b)
+
+Groups <- unique(d2$ID[d2$Study == 2])
+SurrogateList2 <- expand.grid(a = Groups, b = Groups)
+SurrogateList2 <- subset(SurrogateList2, a != b)
+
+Groups <- unique(d2$ID[d2$Study == 3])
+SurrogateList3 <- expand.grid(a = Groups, b = Groups)
+SurrogateList3 <- subset(SurrogateList2, a != b)
+
+SurrogateList <- rbind(SurrogateList1, SurrogateList2, SurrogateList3)
+
+summary(SurrogateList)
+
+
+# Creating a loop for the resp of the work
+for (i in 1:nrow(SurrogateList)) {
+  x <- subset(d2, ID == SurrogateList$a[i])
+  y <- subset(d2, ID == SurrogateList$b[i])
+  group <- 800 + i # Creating new IDs for surrogate list
+  for (task in c("Synchronous", "TurnTaking", "SelfPaced", "Conversation")) {
+    #Making sure that we pair up by conditions
+    if (task %in% unique(x$Task) & task %in% unique(y$Task)) {
+      z3 <- subset(x, Task == task)
+      z4 <- subset(y, Task == task)
+  }
+    if (nrow(z3) > nrow(z4)) {
+      z3 <- z3[-((nrow(z4)+1):nrow(z3)),]
+    }
+        if (nrow(z4) > nrow(z3)) {
+      z4 <- z4[-((nrow(z3)+1):nrow(z4)),]
+        }
+    w1 <- z3 %>% mutate(
+      HR2 = z4$HR2,
+      Resp2 = z4$Resp2,
+      HR2_lead = z4$HR2_lead,
+      Resp2_lead = z4$Resp2_lead,
+      HR2_change = z4$HR2_change,
+      Resp2_change = z4$Resp2_change
+    )
+    w1$ID <- group
+    w1$Type <- "Surrogate"
+    w <- w1
+    if(exists("d_surrogate")) {d_surrogate <- rbind(d_surrogate, w)} else{(d_surrogate <- w)}
+  }
+}
+
+
+
+# Making the surrogate data long:
+subset3 <- d_surrogate %>%
+  dplyr::summarise(Trial = Trial,
+                   Study = Study,
+                   Group = Group,
+                   Task = Task,
+                   ID = ID,
+                   time = time,
+                   Type = Type,
+                   HR_self = HR1,
+                   HR_other = HR2,
+                   Resp_self = Resp1,
+                   Resp_other = Resp2,
+                   HR_self_change = HR1_change,
+                   HR_other_change = HR2_change,
+                   Resp_self_change = Resp1_change,
+                   Resp_other_change = Resp2_change)
+
+subset4 <- d_surrogate %>%
+  dplyr::summarise(Trial = Trial,
+                   Study = Study,
+                   Group = Group,
+                   Task = Task,
+                   ID = ID,
+                   time = time,
+                   Type = Type,
+                   HR_self = HR2,
+                   HR_other = HR1,
+                   Resp_self = Resp2,
+                   Resp_other = Resp1,
+                   HR_self_change = HR2_change,
+                   HR_other_change = HR1_change,
+                   Resp_self_change = Resp2_change,
+                   Resp_other_change = Resp1_change)
+
+subset3$Participant <- 1
+subset4$Participant <- 2
+
+# Making unique ID per participant:
+subset3$ParticipantID <- paste(subset3$ID, subset3$Participant, sep = "", collapse = NULL)
+subset4$ParticipantID <- paste(subset4$ID, subset4$Participant, sep = "", collapse = NULL)
+
+# Merging the two
+d_surrogate_long <- rbind(subset3, subset4)
+
+
+# Concatenate it to the original dataset (and remember to have a column telling you which is which)
+dlong_surrogate <- dlong
+
+dlong_surrogate$diff <- NULL
+d_surrogate_long$diff <- NULL
+
+dlong_surrogate$Type <- "Control"
+
+dlong_surrogate$ID <- NULL
+d_surrogate_long$ID <- NULL
+
+dlong_surrogate <- rbind(dlong_surrogate, d_surrogate_long)
+
+
+## NB: Where are study 3 and 4 ?????
+```
+
+ 
+```{r surrogate - Modeling 3}
+
+# Create the same models as in the previous chunk, but adding an interaction by shuffled vs. real
+
+dlong_surrogate <- dlong_surrogate %>%
+  mutate(diff = HR_other - HR_self)
+
+dlong_surrogate$Type <- as.factor(dlong_surrogate$Type)
+
+HR_m1_surrogate <- lmerTest::lmer(HR_self_change ~ 0+ (HR_self + diff) : Task : Type + (1 + Task | ParticipantID), subset(dlong_surrogate, Study == "2"), REML = F, control = lmerControl(optimizer = "nloptwrap", calc.derivs = F))
+
+summary(HR_m1_surrogate)
+
 ```
  
- 
- 
-```{r}
-df1 <- select(d1, time, HR1, Resp1, Study, Task, ID)
-df2 <- select(d1, time, HR2, Resp2, Study, Task, ID)
-
-
 ```
- 
- 
  
  
 
