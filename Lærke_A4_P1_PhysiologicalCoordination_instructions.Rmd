@@ -706,25 +706,44 @@ dlong$Resp_other_change <- dlong$Resp_other_lead - dlong$Resp_other
 ```
 
 
-```{r Modeling 1}
+```{r Modeling 1 HR}
 # Model change as a function of own and other previous state 
 pacman::p_load(lme4, lmerTest)
 
 # Making a column for the difference in HR between self and other
 dlong <- dlong %>%
-  mutate(diff = HR_other - HR_self)
+  mutate(diff_HR = HR_other - HR_self)
 
 
 # The model:
-HR_m1 <- lmerTest::lmer(HR_self_change ~ (HR_self + diff) : Task + (1 + Task | ParticipantID), subset(dlong, Study == "3"), REML = F, control = lmerControl(optimizer = "nloptwrap", calc.derivs = F))
+HR_m <- lmerTest::lmer(HR_self_change ~ (HR_self + diff_HR) : Task + (1 + Task | ParticipantID), subset(dlong, Study == "3"), REML = F, control = lmerControl(optimizer = "nloptwrap", calc.derivs = F))
 
-summary(HR_m1)
+summary(HR_m)
 
 # Output interpretation in M10 Part 3 (2:40)
 
 
 # Bonus points: Add to the previous model also change in the other to see whether my adaptation is influenced by the other's adaptation.
 ```
+
+
+```{r Modeling 1 Resp}
+# Model change as a function of own and other previous state 
+pacman::p_load(lme4, lmerTest)
+
+# Making a column for the difference in HR between self and other
+dlong <- dlong %>%
+  mutate(diff_Resp = Resp_other - Resp_self)
+
+
+# The model:
+Resp_m <- lmerTest::lmer(Resp_self_change ~ (Resp_self + diff_Resp) : Task + (1 + Task | ParticipantID), subset(dlong, Study == "3"), REML = F, control = lmerControl(optimizer = "nloptwrap", calc.derivs = F))
+
+summary(Resp_m)
+
+# Bonus points: Add to the previous model also change in the other to see whether my adaptation is influenced by the other's adaptation.
+```
+
 
 
 ## Now we need to create control baselines.
@@ -782,20 +801,38 @@ dlonger$ID <- NULL
 ```
 
 
-```{r shuffle - Modeling 2}
+```{r shuffle - Modeling 2 HR}
 # Create the same models as in the previous chunk, but adding an interaction by shuffled vs. real
 pacman::p_load(lme4, lmerTest, tidyverse)
 
 dlonger <- dlonger %>%
-  mutate(diff = HR_other - HR_self)
+  mutate(diff_HR = HR_other - HR_self)
 
 dlonger$Control <- as.factor(dlonger$Control)
 
-HR_m1_shuff <- lmerTest::lmer(HR_self_change ~ 0+ ((HR_self + diff) : Task) : Control + (1 + Task | ParticipantID), subset(dlonger, Study == "3"), REML = F, control = lmerControl(optimizer = "nloptwrap", calc.derivs = F))
+HR_shuff_m <- lmerTest::lmer(HR_self_change ~ 0+ ((HR_self + diff_HR) : Task) : Control + (1 + Task | ParticipantID), subset(dlonger, Study == "3"), REML = F, control = lmerControl(optimizer = "nloptwrap", calc.derivs = F))
 
-summary(HR_m1_shuff)
+summary(HR_shuff_m)
 
 ```
+ 
+ 
+```{r shuffle - Modeling 2 HR}
+# Create the same models as in the previous chunk, but adding an interaction by shuffled vs. real
+pacman::p_load(lme4, lmerTest, tidyverse)
+
+dlonger <- dlonger %>%
+  mutate(diff_Resp = Resp_other - Resp_self)
+
+dlonger$Control <- as.factor(dlonger$Control)
+
+Resp_shuff_m <- lmerTest::lmer(Resp_self_change ~ 0+ ((Resp_self + diff_Resp) : Task) : Control + (1 + Task | ParticipantID), subset(dlonger, Study == "3"), REML = F, control = lmerControl(optimizer = "nloptwrap", calc.derivs = F))
+
+summary(Resp_shuff_m)
+
+```
+ 
+ 
  
  
 ### TRICKY! Creating controls: surrogate pair controls
@@ -946,21 +983,34 @@ dlong_surrogate <- rbind(dlong_surrogate, d_surrogate_long)
 ```
 
  
-```{r surrogate - Modeling 3}
+```{r surrogate - Modeling 3 HR}
 
 # Create the same models as in the previous chunk, but adding an interaction by shuffled vs. real
 
 dlong_surrogate <- dlong_surrogate %>%
-  mutate(diff = HR_other - HR_self)
+  mutate(diff_HR = HR_other - HR_self)
 
 dlong_surrogate$Type <- as.factor(dlong_surrogate$Type)
 
-HR_m1_surrogate <- lmerTest::lmer(HR_self_change ~ 0+ (HR_self + diff) : Task : Type + (1 + Task | ParticipantID), subset(dlong_surrogate, Study == "2"), REML = F, control = lmerControl(optimizer = "nloptwrap", calc.derivs = F))
+HR_surrogate_m <- lmerTest::lmer(HR_self_change ~ 0+ (HR_self + diff_HR) : Task : Type + (1 + Task | ParticipantID), subset(dlong_surrogate, Study == "2"), REML = F, control = lmerControl(optimizer = "nloptwrap", calc.derivs = F))
 
-summary(HR_m1_surrogate)
+summary(HR_surrogate_m)
 
 ```
  
+```{r surrogate - Modeling 3 Resp}
+
+# Create the same models as in the previous chunk, but adding an interaction by shuffled vs. real
+
+dlong_surrogate <- dlong_surrogate %>%
+  mutate(diff_Resp = Resp_other - Resp_self)
+
+dlong_surrogate$Type <- as.factor(dlong_surrogate$Type)
+
+Resp_surrogate_m <- lmerTest::lmer(Resp_self_change ~ 0+ (Resp_self + diff_Resp) : Task : Type + (1 + Task | ParticipantID), subset(dlong_surrogate, Study == "2"), REML = F, control = lmerControl(optimizer = "nloptwrap", calc.derivs = F))
+
+summary(Resp_surrogate_m)
+
 ```
  
  
