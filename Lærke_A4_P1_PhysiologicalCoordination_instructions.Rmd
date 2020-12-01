@@ -890,7 +890,7 @@ for (i in 1:nrow(SurrogateList)) {
   x <- subset(d2, ID == SurrogateList$a[i])
   y <- subset(d2, ID == SurrogateList$b[i])
   group <- 800 + i # Creating new IDs for surrogate list
-  for (task in c("Synchronous", "TurnTaking", "SelfPaced", "Conversation")) {
+  for (task in c("Synchronous", "TurnTaking", "SelfPaced", "Conversation", "MovementGuided", "MovementCoop")) {
     #Making sure that we pair up by conditions
     if (task %in% unique(x$Task) & task %in% unique(y$Task)) {
       z3 <- subset(x, Task == task)
@@ -978,7 +978,6 @@ d_surrogate_long$ID <- NULL
 
 dlong_surrogate <- rbind(dlong_surrogate, d_surrogate_long)
 
-
 ## NB: Where are study 3 and 4 ?????
 ```
 
@@ -1017,6 +1016,28 @@ summary(Resp_surrogate_m)
 
 ### Effects of respiration coordination on heart rate coordination
  - describe how you would test those.
+ 
+```{r}
+# 4) Is respiration coordination a likely driver of heart rate coordination? Describe how you would test for it. Bonus points if you actually run the tests and report methods and results.
+
+HR_by_Resp_m <- lmerTest::lmer(diff_HR ~ 0+ (Resp_self + diff_Resp) : Task + (1 + Task | ParticipantID), subset(dlong, Study == "2"), REML = F, control = lmerControl(optimizer = "nloptwrap", calc.derivs = F))
+
+summary(HR_by_Resp_m)
+
+```
+ 
+ 
  - Optional: run the models and report them
 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
  
