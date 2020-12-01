@@ -157,10 +157,18 @@ A couple of tips:
 
 d1 <- as.data.frame(NULL)
 
-data_preprocess <- function(filename, threshold = 3){
+data_preprocess <- function(filename, threshold = 2){
   
   #loading data
   d <- read_csv(paste0("data/", filename))
+  
+  removeOuts <- function(ts, threshold){
+  higher_threshold_condition <- ts > (mean(ts, na.rm = T) + (threshold*sd(ts, na.rm = T)))
+  lower_threshold_condition <- ts < (mean(ts, na.rm = T) - (threshold*sd(ts, na.rm = T)))
+  ts[higher_threshold_condition] <- NA
+  ts[lower_threshold_condition] <- NA
+  return(ts)
+  }
   
   # renaming the TimeMs column to time to conform study 4 to the others
   # https://www.datanovia.com/en/lessons/rename-data-frame-columns-in-r/
@@ -246,7 +254,7 @@ plot_taskpergroup <- function(id, d1){
   return(p)
 }
 
-plot_taskpergroup(14, d1)
+plot_taskpergroup(11, d1)
 #unique IDs: "11"  "12"  "13"  "14"  "210" "25"  "26"  "27"  "28"  "29"  "31"  "310" "32"  "34"  "35"  "36"  "37"  "38"  "39"  "41"  "42" "43"  "44"  "45"  "46"  "47"  "48" 
 # nederst i group ID 27 mangler der 139 rækker af TurnTaking task
 # group 29: HR2 has a strone in beginning
@@ -280,7 +288,7 @@ plot_taskpergroup_Resp <- function(id, d1){
   p
   return(p)
 }
-plot_taskpergroup_Resp(11, d1)
+plot_taskpergroup_Resp(12, d1)
 #unique IDs: "11"  "12"  "13"  "14"  "210" "25"  "26"  "27"  "28"  "29"  "31"  "310" "32"  "34"  "35"  "36"  "37"  "38"  "39"  "41"  "42" "43"  "44"  "45"  "46"  "47"  "48" 
 # Group 11: Resp 1 is bad in tasks synchronous and turntaking (lowerlimit mainly)
 # group 12: Resp 2 is bad in tasks synchronous and turntaking
@@ -309,7 +317,7 @@ lowerlim_toNA <- function(data, id, task, input){ # the input is HR1, HR2, Resp1
 
 lowerlim_toNA <- function(data, id, task, input){ # the input is HR1, HR2, Resp1 or Resp2
   if(data$ID == id & data$Task == task){
-    data <- data %>% input[input == min(input, na.rm = T)] <- NA
+    data <- data %>% input["input" == min(input, na.rm = T)] <- NA
   }
 }
 
@@ -317,9 +325,27 @@ d_nobad <- d1
 lowerlim_toNA(d_nobad, "12", "Synchronous", Resp2)
 plot_taskpergroup_Resp(12, d_nobad)
 
-view(d1[d1$Group == 1])
+d1 %>%
+  subset(ID == 12 & Task == "Synchronous") %>%
+  min(d1$Resp2)
 
-m
+
+# Lærke's bad-data-removal as of 26/11 2020
+pacman::p_load(tidyverse, groupdata2)
+replaceOutsNA <- function(ts, threshold){
+  higher_threshold_condition <- ts > (mean(ts, na.rm = T) + (threshold*sd(ts, na.rm = T)))
+  lower_threshold_condition <- ts < (mean(ts, na.rm = T) - (threshold*sd(ts, na.rm = T)))
+  ts[higher_threshold_condition] <- NA
+  ts[lower_threshold_condition] <- NA
+  return(ts)
+}
+threshold = 3
+# The latest changes made was to adjust this function, and then insert it in the function below (lines 540-543), in that function I also now remove the rows with NAs in them (line 545).
+
+
+
+
+
 # Save the data
 ```
 
@@ -416,8 +442,6 @@ Tip: sample() is your friend, but make sure to shuffle things within participant
  
 ```{r Shuffled controls}
 # Create a shuffled dataset
-
-
 # Concatenate it to the original dataset (and remember to have a column telling you which is which)
 # Create the same models as in the previous chunk, but adding an interaction by shuffled vs. real
 
@@ -430,6 +454,8 @@ Tip: sample() is your friend, but make sure to shuffle things within participant
 ```{r Surrogate pair controls}
 # Identify unique pairs within a given study (to keep things manageable) and create list of possible surrogate pairs (e.g. individual 1 from pair 1 and individual 2 from pair 2)
 # Starting from the wide format, create "surrogate" dataset with the data from surrogate pairs
+split(x = d1, f = c(Study, ),)
+
 # Make it into long format
 # Create models as in chunks above, but adding an interaction with the Real vs. Surrogate variable (exclude shuffled ones for simplicity)
 ```
