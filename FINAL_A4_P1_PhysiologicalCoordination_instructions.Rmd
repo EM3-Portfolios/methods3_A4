@@ -53,7 +53,7 @@ The data files can be found here: https://www.dropbox.com/sh/bvvk7t3fvsplh9o/AAD
 - downsample the data
 - Add a column for study, group, trial and condition
 
-```{r First we read one data file and identify the procedure}
+```{r First we read one data file and identify the procedure, Anne}
 # Load the libraries
 pacman::p_load(tidyverse, groupdata2)
 
@@ -136,7 +136,7 @@ A couple of tips:
 - you need to make sure all the data are meaningful or something has to be removed. Plotting is your friend. E.g. "Study1_G1_T1_Synchronous" has one bad respiration signal. We could replace it with NAs
 
 
-```{r data preprocessing function}
+```{r data preprocessing function, Manon & Lærke}
 # Define a function running the loading, artifact removal, scaling, downsampling, info adding.
 
 d1 <- as.data.frame(NULL)
@@ -205,7 +205,7 @@ d1 <- map_df(filenames_list, data_preprocess)
 
 
 
-```{r plotting inspecting and saving data}
+```{r plotting inspecting and saving data, Cecilie}
 # Now we need to make sure all the data are meaningful or something has to be removed
 # E.g. "Study1_G1_T1_Synchronous" has one bad respiration signal. We could replace it with NAs
 
@@ -288,7 +288,7 @@ Bonus question: what if we include an additional layer? Is my heart rate just ad
 - we can then build on the previous models by also adding the previous change in the other
 
 
-```{r Make the data long}
+```{r Make the data long, Lærke}
 # Make the data long, so we can analyze both participants at the same time.
 # Set the most interesting contrast e.g. by defining synchronous or conversation as the baseline (M:what?)
 
@@ -350,7 +350,7 @@ dlong$Resp_other_change <- dlong$Resp_other_lead - dlong$Resp_other
 ```
 
 
-```{r Modeling 1 HR}
+```{r Modeling 1 HR, Alba}
 # Model change as a function of own and other previous state 
 pacman::p_load(lme4, lmerTest)
 
@@ -365,7 +365,7 @@ summary(HR_m)
 ```
 
 
-```{r Modeling 1 Resp}
+```{r Modeling 1 Resp, Alba}
 # Model change as a function of own and other previous state 
 pacman::p_load(lme4, lmerTest)
 
@@ -390,7 +390,7 @@ First shuffled controls, then surrogate pairs.
 Shuffled controls break the temporal dependencies of time-series by shuffling the value within one time-series. This ensures the "coordination" observed is not due to the actual values in the series and not their sequence.
 Tip: sample() is your friend, but make sure to shuffle things within participant/condition and not throughout the whole dataset
  
-```{r Create shuffled controls}
+```{r Create shuffled controls, Manon}
 # Create a shuffled dataset
 pacman::p_load(tidyverse)
 
@@ -435,7 +435,7 @@ dlonger$ID <- NULL
 ```
  
 
-```{r shuffle - Modeling 2 HR - across tasks}
+```{r shuffle - Modeling 2 HR - across tasks, Anne}
 # Create the same models as in the previous chunk, but adding an interaction by shuffled vs. real
 pacman::p_load(lme4, lmerTest, tidyverse)
 
@@ -450,7 +450,7 @@ summary(m1_HR_shuff)
 ```
 
 
-```{r shuffle - Modeling 2 HR - within task}
+```{r shuffle - Modeling 2 HR - within task, Cecilie}
 # Create the same models as in the previous chunk, but adding an interaction by shuffled vs. real
 pacman::p_load(lme4, lmerTest, tidyverse)
 
@@ -469,7 +469,7 @@ summary(m5.2_HR_shuff)
 ### TRICKY! Creating controls: surrogate pair controls
  - Per each real pair, identify at least one surrogate pair (matching one of the participants, with somebody doing the same task, but in a different pair)
 
-```{r Making surrogate pairs}
+```{r Making surrogate pairs, Cecilie, Lærke, Manon}
 # Making a copy dataset to work with (just in case we change something in it)
 d2 <- d1
 
@@ -608,7 +608,7 @@ dlong_surrogate <- rbind(dlong_surrogate, d_surrogate_long)
 ```
 
 
-```{r surrogate - Modeling 3 HR - across tasks}
+```{r surrogate - Modeling 3 HR - across tasks, Alba}
 dlong_surrogate <- dlong_surrogate %>%
   mutate(diff_HR = HR_other - HR_self)
 
@@ -620,14 +620,14 @@ summary(m3_HR_surrogate)
 ```
 
  
-```{r surrogate - Modeling 3 HR - within task}
+```{r surrogate - Modeling 3 HR - within task, Anne}
 m7_HR_surrogate <- lmerTest::lmer(HR_self_change ~ 0+ (HR_self + diff_HR) : Task : Type + (1 | ParticipantID), dlong_surrogate, REML = F, control = lmerControl(optimizer = "nloptwrap", calc.derivs = F))
 
 summary(m7_HR_surrogate)
 ```
 
 
-```{r surrogate - Modeling 3 Resp - across tasks}
+```{r surrogate - Modeling 3 Resp - across tasks, Manon}
 # Create the same models as in the previous chunk, but adding an interaction by shuffled vs. real
 
 dlong_surrogate <- dlong_surrogate %>%
@@ -641,7 +641,7 @@ summary(m4_Resp_surrogate)
 ```
 
  
-```{r surrogate - Modeling 3 Resp - within task}
+```{r surrogate - Modeling 3 Resp - within task, Manon}
 m8_Resp_surrogate <- lmerTest::lmer(Resp_self_change ~ 0+ (Resp_self + diff_Resp) : Task : Type + (1 | ParticipantID), dlong_surrogate, REML = F, control = lmerControl(optimizer = "nloptwrap", calc.derivs = F))
 
 summary(m8_Resp_surrogate)
@@ -656,7 +656,7 @@ summary(m8_Resp_surrogate)
  - Optional: run the models and report them
 
  
-```{r}
+```{r, Anne}
 # 4) Is respiration coordination a likely driver of heart rate coordination? Describe how you would test for it. Bonus points if you actually run the tests and report methods and results.
 
 m9_HR_by_Resp <- lmerTest::lmer(diff_HR ~ 0+ (Resp_self + diff_Resp) : Task + (1 | ParticipantID), dlong, REML = F, control = lmerControl(optimizer = "nloptwrap", calc.derivs = F))
